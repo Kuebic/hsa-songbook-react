@@ -18,6 +18,11 @@ export interface OfflineState {
   cachedSongsCount: number;
   cachedSetlistsCount: number;
   
+  // Storage quota tracking
+  storageQuotaUsed: number; // percentage 0-100
+  storageQuotaWarning: boolean;
+  storageQuotaCritical: boolean;
+  
   // Update status
   isUpdateAvailable: boolean;
   isUpdating: boolean;
@@ -31,6 +36,7 @@ export interface OfflineState {
   setAppOnlineStatus: (online: boolean) => void;
   setConnectionType: (type: string | null) => void;
   setCachedCounts: (songs: number, setlists: number) => void;
+  setStorageQuota: (used: number, warning: boolean, critical: boolean) => void;
   setUpdateStatus: (available: boolean, updating?: boolean) => void;
   setOfflineMode: (mode: 'auto' | 'force-offline' | 'force-online') => void;
   setLastUpdateCheck: (date: Date) => void;
@@ -54,6 +60,9 @@ export const useOfflineStore = create<OfflineState>()(
     hasOfflineData: false,
     cachedSongsCount: 0,
     cachedSetlistsCount: 0,
+    storageQuotaUsed: 0,
+    storageQuotaWarning: false,
+    storageQuotaCritical: false,
     isUpdateAvailable: false,
     isUpdating: false,
     lastUpdateCheck: null,
@@ -80,6 +89,14 @@ export const useOfflineStore = create<OfflineState>()(
         cachedSongsCount: songs,
         cachedSetlistsCount: setlists,
         hasOfflineData: songs > 0 || setlists > 0,
+      });
+    },
+    
+    setStorageQuota: (used: number, warning: boolean, critical: boolean) => {
+      set({
+        storageQuotaUsed: used,
+        storageQuotaWarning: warning,
+        storageQuotaCritical: critical,
       });
     },
     
