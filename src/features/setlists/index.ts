@@ -3,11 +3,10 @@
  * @description Setlist building, sharing, and performance tools
  *
  * Exports:
- * - Components: SetlistBuilder, SetlistPlayer, SetlistShare
+ * - Components: SetlistsPage, SetlistBuilder, SetlistPlayer, SetlistShare
  * - Hooks: useSetlistDragDrop, useSetlistSync
  * - API: setlistApi, setlistQueries
  * - Types: Setlist, SetlistSong, SetlistMetadata
  */
 
-// Placeholder exports (implement as you build the feature)
-export {};
+export * from './components'
