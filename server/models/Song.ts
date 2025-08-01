@@ -169,7 +169,7 @@ songSchema.methods.generateSlug = async function(): Promise<string> {
     return Math.random().toString(36).substring(2, 7); // 5 characters
   };
 
-  let baseSlug = `${title}${artistInitials ? '-' + artistInitials : ''}`;
+  const baseSlug = `${title}${artistInitials ? '-' + artistInitials : ''}`;
   let slug = `${baseSlug}-${generateRandomSuffix()}`;
   
   // Check for collisions and regenerate if needed
@@ -256,9 +256,10 @@ songSchema.pre('save', async function() {
       if (currentSizeMB > 400) { // Warn at 400MB for 512MB free tier
         console.warn(`Database size warning: ${currentSizeMB.toFixed(2)}MB used. Approaching 512MB limit.`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Silently continue if stats are unavailable (e.g., in testing)
-      console.debug('Could not retrieve database stats:', error?.message || error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.debug('Could not retrieve database stats:', errorMessage);
     }
   }
 });
@@ -277,7 +278,7 @@ songSchema.statics.searchSongs = function(query: string, options: SearchOptions 
     filters = {}
   } = options;
 
-  let searchQuery: any = {
+  const searchQuery: Record<string, unknown> = {
     'metadata.isPublic': true
   };
 
@@ -304,7 +305,7 @@ songSchema.statics.searchSongs = function(query: string, options: SearchOptions 
   }
 
   // Configure sorting
-  let sort: any = {};
+  const sort: Record<string, unknown> = {};
   switch (sortBy) {
     case 'relevance':
       sort = query.trim() ? { score: { $meta: 'textScore' } } : { 'metadata.ratings.average': -1 };
