@@ -181,7 +181,7 @@ export function useChordEditor(
       line: cursor.line,
       column: cursor.column + text.length
     });
-  }, [content, cursor, setContent]);
+  }, [content, cursor, setContent, setCursor]);
 
   /**
    * Replace selected text
@@ -228,7 +228,7 @@ export function useChordEditor(
     
     setCursor(newCursor);
     setSelectionState(undefined);
-  }, [content, selection, insertText, setContent]);
+  }, [content, selection, insertText, setContent, setCursor]);
 
   /**
    * Undo last action
@@ -273,14 +273,14 @@ export function useChordEditor(
    */
   const canUndo = useMemo(() => {
     return historyIndexRef.current > 0;
-  }, [historyIndexRef.current]);
+  }, []);
 
   /**
    * Check if redo is available
    */
   const canRedo = useMemo(() => {
     return historyIndexRef.current < historyRef.current.length - 1;
-  }, [historyIndexRef.current]);
+  }, []);
 
   /**
    * Format content (basic ChordPro formatting)
