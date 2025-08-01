@@ -25,3 +25,5 @@ dist-ssr
 
 # Ignore Claude instructions
 .claude
+CLAUDE.md
+PRPs/
