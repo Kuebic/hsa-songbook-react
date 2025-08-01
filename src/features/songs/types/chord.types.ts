@@ -227,13 +227,13 @@ export interface EditorToolbarAction {
   /** Action type */
   type: 'button' | 'separator' | 'dropdown';
   /** Action to perform (optional for callback-based approach) */
-  action?: (editor?: any) => void;
+  action?: (editor?: unknown) => void;
   /** Keyboard shortcut display */
   shortcut?: string;
   /** Tooltip text */
   tooltip?: string;
   /** Action payload for custom handling */
-  payload?: any;
+  payload?: unknown;
   /** Whether action is currently active */
   active?: boolean;
   /** Whether action is disabled */

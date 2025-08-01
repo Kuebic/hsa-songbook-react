@@ -29,7 +29,7 @@ export interface ChordEditorToolbarProps {
   /** Custom toolbar actions */
   customActions?: EditorToolbarAction[];
   /** Callback for toolbar actions */
-  onAction: (action: string, payload?: any) => void;
+  onAction: (action: string, payload?: unknown) => void;
   /** Additional CSS classes */
   className?: string;
 }
