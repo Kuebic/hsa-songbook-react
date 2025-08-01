@@ -18,6 +18,23 @@ import { ChordEditorPreview } from './ChordEditorPreview';
 // Type imports for Ace editor
 import type { Ace } from 'ace-builds';
 
+// Ace editor completion types
+interface AceCompletion {
+  caption: string;
+  value: string;
+  meta: string;
+}
+
+interface AceCompleter {
+  getCompletions: (
+    editor: Ace.Editor,
+    session: Ace.EditSession,
+    pos: Ace.Position,
+    prefix: string,
+    callback: (error: Error | null, completions: AceCompletion[] | null) => void
+  ) => void;
+}
+
 /**
  * ChordEditor Component
  * 
@@ -195,8 +212,8 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
         const langTools = ace.require('ace/ext/language_tools');
         
         // ChordPro directives completer
-        const directiveCompleter = {
-          getCompletions: (_editor: any, session: any, pos: any, _prefix: any, callback: any) => {
+        const directiveCompleter: AceCompleter = {
+          getCompletions: (_editor, session, pos, _prefix, callback) => {
             const line = session.getLine(pos.row);
             const beforeCursor = line.slice(0, pos.column);
             
@@ -218,8 +235,8 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
         };
 
         // Chord symbols completer
-        const chordCompleter = {
-          getCompletions: (_editor: any, session: any, pos: any, _prefix: any, callback: any) => {
+        const chordCompleter: AceCompleter = {
+          getCompletions: (_editor, session, pos, _prefix, callback) => {
             const line = session.getLine(pos.row);
             const beforeCursor = line.slice(0, pos.column);
             
@@ -315,7 +332,7 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
   /**
    * Handle toolbar actions
    */
-  const handleToolbarAction = useCallback((action: string, _payload?: any) => {
+  const handleToolbarAction = useCallback((action: string) => {
     switch (action) {
       case 'undo':
         undo();

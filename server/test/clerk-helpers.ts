@@ -66,13 +66,13 @@ export function createMockAuth(userType: 'REGULAR_USER' | 'ADMIN_USER' | 'LEADER
   }
 
   return {
-    userId: MOCK_USER_IDS[userType],
+    userId: MOCK_USER_IDS[userType].toString(),
     sessionId: MOCK_SESSION_TOKENS[userType],
     sessionClaims: {
       metadata: {
         role: roleMap[userType],
       },
-      sub: MOCK_USER_IDS[userType],
+      sub: MOCK_USER_IDS[userType].toString(),
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
     },
@@ -88,6 +88,19 @@ export function createClerkMocks(defaultUserType: 'REGULAR_USER' | 'ADMIN_USER' 
 
   return {
     clerkMiddleware: () => (req: Express.Request, res: Express.Response, next: Express.NextFunction) => {
+      // Parse Authorization header to determine user type
+      const authHeader = req.headers.authorization
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7)
+        // Match token to user type
+        const userType = Object.entries(MOCK_SESSION_TOKENS).find(([, t]) => t === token)?.[0] as keyof typeof MOCK_SESSION_TOKENS
+        if (userType) {
+          currentAuthState = createMockAuth(userType)
+        }
+      } else if (!authHeader) {
+        currentAuthState = createMockAuth(null)
+      }
+      
       req.auth = currentAuthState
       next()
     },
@@ -101,7 +114,19 @@ export function createClerkMocks(defaultUserType: 'REGULAR_USER' | 'ADMIN_USER' 
       req.auth = currentAuthState
       next()
     },
-    getAuth: () => currentAuthState,
+    getAuth: (req: Express.Request) => {
+      // Parse Authorization header to determine user type
+      const authHeader = req.headers.authorization
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7)
+        // Match token to user type
+        const userType = Object.entries(MOCK_SESSION_TOKENS).find(([, t]) => t === token)?.[0] as keyof typeof MOCK_SESSION_TOKENS
+        if (userType) {
+          return createMockAuth(userType)
+        }
+      }
+      return createMockAuth(null)
+    },
     
     // Helper to change auth state during tests
     setAuthState: (userType: 'REGULAR_USER' | 'ADMIN_USER' | 'LEADER_USER' | null) => {
