@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HSA Songbook - Offline</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .offline-container {
+            max-width: 500px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .offline-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            font-size: 1.25rem;
+            margin-bottom: 24px;
+            opacity: 0.9;
+        }
+        
+        .message {
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 32px;
+            opacity: 0.8;
+        }
+        
+        .retry-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 12px;
+        }
+        
+        .retry-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        .home-button {
+            background: #1d4ed8;
+            border: 2px solid #1d4ed8;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .home-button:hover {
+            background: #1e40af;
+            border-color: #1e40af;
+            transform: translateY(-2px);
+        }
+        
+        .features {
+            margin-top: 32px;
+            text-align: left;
+        }
+        
+        .features h3 {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        
+        .feature-list {
+            list-style: none;
+        }
+        
+        .feature-list li {
+            margin-bottom: 8px;
+            padding-left: 24px;
+            position: relative;
+            opacity: 0.9;
+        }
+        
+        .feature-list li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4ade80;
+            font-weight: bold;
+        }
+        
+        @media (max-width: 480px) {
+            .offline-container {
+                padding: 24px;
+                margin: 10px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .subtitle {
+                font-size: 1.1rem;
+            }
+            
+            .retry-button,
+            .home-button {
+                display: block;
+                width: 100%;
+                margin: 8px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-container">
+        <div class="offline-icon">🎵</div>
+        <h1>You're Offline</h1>
+        <p class="subtitle">HSA Songbook</p>
+        <p class="message">
+            Don't worry! You can still access your cached songs and continue using the app. 
+            Some features may be limited until you're back online.
+        </p>
+        
+        <button class="retry-button" onclick="location.reload()">
+            Try Again
+        </button>
+        <a href="/" class="home-button">
+            Go to Home
+        </a>
+        
+        <div class="features">
+            <h3>Available Offline:</h3>
+            <ul class="feature-list">
+                <li>View previously loaded songs</li>
+                <li>Browse cached chord charts</li>
+                <li>Access saved setlists</li>
+                <li>Use chord editor</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        // Check for network connectivity
+        function checkConnection() {
+            if (navigator.onLine) {
+                location.reload();
+            }
+        }
+        
+        // Listen for network status changes
+        window.addEventListener('online', checkConnection);
+        
+        // Auto-retry every 10 seconds
+        setInterval(checkConnection, 10000);
+        
+        // Service worker communication
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'CACHE_UPDATED') {
+                    // Show a button to reload when cache is updated
+                    const button = document.createElement('button');
+                    button.textContent = 'New Content Available - Reload';
+                    button.className = 'retry-button';
+                    button.onclick = () => location.reload();
+                    button.style.marginTop = '16px';
+                    button.style.display = 'block';
+                    button.style.width = '100%';
+                    document.querySelector('.offline-container').appendChild(button);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

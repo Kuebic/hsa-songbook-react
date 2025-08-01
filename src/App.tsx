@@ -3,18 +3,29 @@ import { AppLayout, ErrorBoundary } from './shared/components'
 import { HomePage } from './features/auth'
 import { SongsPage } from './features/songs'
 import { SetlistsPage } from './features/setlists'
+import { OfflineIndicator, UpdatePrompt } from './shared/components/UI'
+import { useNetworkMonitor } from './shared/hooks/useOfflineStatus'
 import './App.css'
 
 function App() {
+  // Initialize network monitoring
+  useNetworkMonitor();
+
   return (
     <ErrorBoundary>
       <Router>
         <AppLayout>
+          {/* Offline status indicator */}
+          <OfflineIndicator position="top" autoHide showDetails />
+          
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/songs" element={<SongsPage />} />
             <Route path="/setlists" element={<SetlistsPage />} />
           </Routes>
+          
+          {/* Update prompt for PWA updates */}
+          <UpdatePrompt position="bottom" />
         </AppLayout>
       </Router>
     </ErrorBoundary>

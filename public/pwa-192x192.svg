@@ -1,0 +1,24 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" fill="#1d4ed8" rx="24"/>
+  <g fill="white">
+    <!-- Music note -->
+    <circle cx="60" cy="120" r="12"/>
+    <rect x="72" y="60" width="4" height="60"/>
+    <path d="M76 60 Q86 50 96 60 L96 100 Q86 90 76 100 Z"/>
+    
+    <!-- Second music note -->
+    <circle cx="100" cy="140" r="10"/>
+    <rect x="110" y="80" width="3" height="60"/>
+    <path d="M113 80 Q120 72 128 80 L128 110 Q120 102 113 110 Z"/>
+    
+    <!-- Book pages -->
+    <rect x="40" y="40" width="80" height="100" fill="none" stroke="white" stroke-width="3" rx="4"/>
+    <line x1="60" y1="55" x2="100" y2="55" stroke="white" stroke-width="2"/>
+    <line x1="60" y1="70" x2="110" y2="70" stroke="white" stroke-width="2"/>
+    <line x1="60" y1="85" x2="95" y2="85" stroke="white" stroke-width="2"/>
+    
+    <!-- Center line -->
+    <line x1="80" y1="40" x2="80" y2="140" stroke="white" stroke-width="1" opacity="0.5"/>
+  </g>
+</svg>
