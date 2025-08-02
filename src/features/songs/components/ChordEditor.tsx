@@ -278,3 +278,5 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
 });
 
 ChordEditor.displayName = 'ChordEditor';
+
+export default ChordEditor;

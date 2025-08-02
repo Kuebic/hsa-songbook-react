@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { requireAuth, optionalAuth, requireRole, requireAdmin, requireLeader } from '../auth';
 import { Role, AuthenticatedRequest } from '../../types/auth';
 
@@ -23,7 +23,7 @@ describe('Authentication Middleware', () => {
       json: vi.fn().mockReturnThis()
     };
     mockNext = vi.fn();
-    mockGetAuth = getAuth as any;
+    mockGetAuth = getAuth as ReturnType<typeof vi.fn>;
     vi.clearAllMocks();
   });
 

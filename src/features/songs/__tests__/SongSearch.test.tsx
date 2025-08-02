@@ -171,7 +171,7 @@ describe('SongSearch', () => {
       </TestWrapper>
     );
 
-    const input = screen.getByRole('textbox') as HTMLInputElement;
+    const input = screen.getByRole('textbox');
     await user.type(input, 'test');
     
     const clearButton = screen.getByLabelText('Clear search');

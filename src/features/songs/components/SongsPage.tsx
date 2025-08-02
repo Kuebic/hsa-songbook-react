@@ -1,10 +1,13 @@
+import React, { Suspense, useState } from 'react'
 import { SignedIn, SignedOut } from '@clerk/clerk-react'
 import { Card } from '../../../shared/components'
 import { ChordDisplay } from './ChordDisplay'
-import { ChordEditor } from './ChordEditor'
 import { useChordTransposition } from '../hooks/useChordTransposition'
 import { useTheme } from '../../../shared/contexts/ThemeContext'
-import { useState } from 'react'
+import { LoadingSpinner, LazyLoadErrorBoundary } from '../../../shared/components/UI'
+
+// Lazy load ChordEditor (heaviest component with ace-builds dependency)
+const ChordEditor = React.lazy(() => import('./ChordEditor'))
 
 const sampleSong = `{title: Amazing Grace}
 {subtitle: Traditional}
@@ -72,15 +75,27 @@ export function SongsPage() {
             </p>
           </div>
 
-          <ChordEditor
-            content={editorContent}
-            onChange={setEditorContent}
-            showPreview={showPreview}
-            theme={resolvedTheme}
-            height={600}
-            autoComplete={true}
-            showToolbar={true}
-          />
+          <LazyLoadErrorBoundary componentName="Chord Editor">
+            <Suspense 
+              fallback={
+                <div className="flex flex-col items-center justify-center h-96 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+                  <LoadingSpinner size="lg" />
+                  <p className="mt-4 text-gray-600 dark:text-gray-400">Loading Chord Editor...</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-500">This may take a moment on first load</p>
+                </div>
+              }
+            >
+              <ChordEditor
+                content={editorContent}
+                onChange={setEditorContent}
+                showPreview={showPreview}
+                theme={resolvedTheme}
+                height={600}
+                autoComplete={true}
+                showToolbar={true}
+              />
+            </Suspense>
+          </LazyLoadErrorBoundary>
         </Card>
         
         <Card>
@@ -125,3 +140,5 @@ export function SongsPage() {
     </div>
   )
 }
+
+export default SongsPage

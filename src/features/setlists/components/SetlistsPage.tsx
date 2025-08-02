@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { SignedIn, SignedOut, useUser } from '@clerk/clerk-react';
 import { Card, Button } from '../../../shared/components';
-import { SetlistBuilder } from './SetlistBuilder';
+import { LoadingSpinner, LazyLoadErrorBoundary } from '../../../shared/components/UI';
 import { useSetlistStore } from '../stores';
 import type { Setlist } from '../types';
+
+// Lazy load SetlistBuilder (heavy component with drag-and-drop dependencies)
+const SetlistBuilder = React.lazy(() => import('./SetlistBuilder'));
 
 export function SetlistsPage() {
   const [view, setView] = useState<'list' | 'builder'>('list');
@@ -244,13 +247,29 @@ export function SetlistsPage() {
           </SignedOut>
         </Card>
       ) : (
-        <SetlistBuilder
-          setlistId={currentSetlistId || undefined}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          className="max-w-4xl mx-auto"
-        />
+        <LazyLoadErrorBoundary componentName="Setlist Builder">
+          <Suspense 
+            fallback={
+              <div className="max-w-4xl mx-auto">
+                <div className="flex flex-col items-center justify-center h-96 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+                  <LoadingSpinner size="lg" />
+                  <p className="mt-4 text-gray-600 dark:text-gray-400">Loading Setlist Builder...</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-500">Preparing drag-and-drop interface</p>
+                </div>
+              </div>
+            }
+          >
+            <SetlistBuilder
+              setlistId={currentSetlistId || undefined}
+              onSave={handleSave}
+              onCancel={handleCancel}
+              className="max-w-4xl mx-auto"
+            />
+          </Suspense>
+        </LazyLoadErrorBoundary>
       )}
     </div>
   );
 }
+
+export default SetlistsPage
