@@ -24,7 +24,16 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+    <ClerkProvider 
+      publishableKey={PUBLISHABLE_KEY} 
+      afterSignOutUrl="/"
+      signInFallbackRedirectUrl="/songs"
+      signUpFallbackRedirectUrl="/songs"
+      options={{
+        synchronize: true, // Enable cross-tab session sync
+        isSatellite: false
+      }}
+    >
       <App />
     </ClerkProvider>
   </StrictMode>,
