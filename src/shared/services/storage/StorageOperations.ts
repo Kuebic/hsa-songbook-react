@@ -11,7 +11,7 @@ import type {
   StorageQueryOptions,
   StorageConfig,
   StorageMetadata,
-  StorageEvent
+  QueryableEntity
 } from '../../types/storage.types';
 import { StorageDatabase } from './StorageDatabase';
 
@@ -19,11 +19,19 @@ import { StorageDatabase } from './StorageDatabase';
  * High-level CRUD operations for storage entities
  */
 export class StorageOperations {
+  private db: StorageDatabase;
+  private config: StorageConfig;
+  private emit: <T = unknown>(event: string, data: T) => void;
+
   constructor(
-    private db: StorageDatabase,
-    private config: StorageConfig,
-    private emit: <T = unknown>(event: string, data: T) => void
-  ) {}
+    db: StorageDatabase,
+    config: StorageConfig,
+    emit: <T = unknown>(event: string, data: T) => void
+  ) {
+    this.db = db;
+    this.config = config;
+    this.emit = emit;
+  }
 
   // ===============================
   // SETLIST OPERATIONS
@@ -321,40 +329,40 @@ export class StorageOperations {
   /**
    * Apply query filters to results
    */
-  private applyQueryFilters<T extends StorageMetadata>(items: T[], options: StorageQueryOptions): T[] {
+  private applyQueryFilters<T extends QueryableEntity>(items: T[], options: StorageQueryOptions): T[] {
     let filtered = [...items];
 
     // Filter by sync status
     if (options.syncStatus) {
-      filtered = filtered.filter(item => item.syncStatus === options.syncStatus);
+      filtered = filtered.filter(item => options.syncStatus!.includes(item.syncStatus));
     }
 
     // Filter by date range
     if (options.dateRange) {
-      const { from, to } = options.dateRange;
+      const { start, end } = options.dateRange;
       filtered = filtered.filter(item => {
         const itemDate = new Date(item.updatedAt);
-        return (!from || itemDate >= from) && (!to || itemDate <= to);
+        return (!start || itemDate.getTime() >= start) && (!end || itemDate.getTime() <= end);
       });
     }
 
     // Filter by tags
     if (options.tags && options.tags.length > 0) {
       filtered = filtered.filter(item => {
-        const itemTags = (item as any).tags || [];
+        const itemTags = item.tags || [];
         return options.tags!.some(tag => itemTags.includes(tag));
       });
     }
 
     // Search by text
-    if (options.search) {
-      const searchTerm = options.search.toLowerCase();
+    if (options.searchTerm) {
+      const searchTerm = options.searchTerm.toLowerCase();
       filtered = filtered.filter(item => {
         const searchFields = [
-          (item as any).name,
-          (item as any).title,
-          (item as any).description,
-          (item as any).artist
+          item.name,
+          item.title,
+          item.description,
+          item.artist
         ].filter(Boolean);
         
         return searchFields.some(field => 
@@ -366,8 +374,12 @@ export class StorageOperations {
     // Sort results
     if (options.sortBy) {
       filtered.sort((a, b) => {
-        const aValue = (a as any)[options.sortBy!];
-        const bValue = (b as any)[options.sortBy!];
+        const aValue = a[options.sortBy as keyof T];
+        const bValue = b[options.sortBy as keyof T];
+        
+        if (aValue == null && bValue == null) return 0;
+        if (aValue == null) return 1;
+        if (bValue == null) return -1;
         
         if (aValue < bValue) return options.sortOrder === 'desc' ? 1 : -1;
         if (aValue > bValue) return options.sortOrder === 'desc' ? -1 : 1;
@@ -405,11 +417,11 @@ export class StorageOperations {
   /**
    * Create error result
    */
-  private createErrorResult<T = never>(error: string): StorageOperationResult<T> {
+  private createErrorResult<T = unknown>(error: string): StorageOperationResult<T> {
     return {
       success: false,
       error,
-      operation: 'unknown',
+      operation: 'read',
       timestamp: Date.now()
     };
   }
@@ -417,7 +429,7 @@ export class StorageOperations {
   /**
    * Handle storage errors
    */
-  private handleStorageError(error: unknown, operation: StorageOperationResult['operation']): StorageOperationResult<never> {
+  private handleStorageError<T = unknown>(error: unknown, operation: StorageOperationResult['operation']): StorageOperationResult<T> {
     const errorMessage = error instanceof Error ? error.message : 'Unknown storage error';
     
     // Emit error event

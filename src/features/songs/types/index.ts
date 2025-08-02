@@ -4,3 +4,4 @@
  */
 
 export * from './chord.types';
+export * from './search.types';

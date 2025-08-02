@@ -1,3 +1,4 @@
+import '../../test/setup.js'; // Must be first to ensure mocks are set up
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import { app } from '../../index.js';
@@ -18,7 +19,10 @@ describe('Songs API', () => {
     // Connect to test database
     db = DatabaseConnection.getInstance();
     await db.connect(mongoUri);
-  });
+    
+    // Ensure text indexes are created for search functionality
+    await Song.createIndexes();
+  }, 10000); // 10 second timeout for database setup
 
   afterAll(async () => {
     // Clean up
@@ -38,7 +42,6 @@ describe('Songs API', () => {
         {
           title: 'Amazing Grace',
           artist: 'John Newton',
-          slug: 'amazing-grace-jn-12345',
           key: 'G',
           difficulty: 'intermediate',
           metadata: { isPublic: true, ratings: { average: 0, count: 0 }, views: 0 }
@@ -85,7 +88,6 @@ describe('Songs API', () => {
       const testSongs = [
         {
           title: 'Song in G',
-          slug: 'song-in-g-12345',
           key: 'G',
           metadata: { isPublic: true, ratings: { average: 0, count: 0 }, views: 0 }
         },
@@ -111,7 +113,6 @@ describe('Songs API', () => {
       const testSongs = [
         {
           title: 'Easy Song',
-          slug: 'easy-song-12345',
           difficulty: 'beginner',
           metadata: { isPublic: true, ratings: { average: 0, count: 0 }, views: 0 }
         },
@@ -138,7 +139,6 @@ describe('Songs API', () => {
         {
           title: 'Amazing Grace',
           artist: 'John Newton',
-          slug: 'amazing-grace-jn-12345',
           metadata: { isPublic: true, ratings: { average: 0, count: 0 }, views: 0 }
         },
         {
@@ -194,9 +194,8 @@ describe('Songs API', () => {
       const testSong = await Song.create({
         title: 'Amazing Grace',
         artist: 'John Newton',
-        slug: 'amazing-grace-jn-12345',
         key: 'G',
-        chordData: Buffer.from('test chord data'),
+        _directChordData: 'test chord data', // Use _directChordData to trigger automatic compression
         metadata: { isPublic: true, ratings: { average: 4.5, count: 10 }, views: 100 }
       });
 
@@ -207,7 +206,7 @@ describe('Songs API', () => {
       expect(response.body).toMatchObject({
         title: 'Amazing Grace',
         artist: 'John Newton',
-        slug: 'amazing-grace-jn-12345',
+        slug: testSong.slug, // Use the generated slug
         key: 'G'
       });
 
@@ -229,12 +228,11 @@ describe('Songs API', () => {
     it('hides private songs from unauthenticated users', async () => {
       const privateSong = await Song.create({
         title: 'Private Song',
-        slug: 'private-song-12345',
         metadata: { 
           isPublic: false, 
           ratings: { average: 0, count: 0 }, 
           views: 0,
-          createdBy: MOCK_USER_IDS.REGULAR_USER
+          createdBy: MOCK_USER_IDS.REGULAR_USER.toString()
         }
       });
 
@@ -251,13 +249,12 @@ describe('Songs API', () => {
     it('shows private songs to authenticated users who own them', async () => {
       const privateSong = await Song.create({
         title: 'My Private Song',
-        slug: 'my-private-song-12345',
         key: 'C',
         metadata: { 
           isPublic: false, 
           ratings: { average: 0, count: 0 }, 
           views: 0,
-          createdBy: MOCK_USER_IDS.REGULAR_USER
+          createdBy: MOCK_USER_IDS.REGULAR_USER.toString()
         }
       });
 
@@ -268,7 +265,7 @@ describe('Songs API', () => {
 
       expect(response.body).toMatchObject({
         title: 'My Private Song',
-        slug: 'my-private-song-12345',
+        slug: privateSong.slug,
         key: 'C'
       });
     });
@@ -299,13 +296,12 @@ describe('Songs API', () => {
       // Create a song owned by the regular user
       const userSong = await Song.create({
         title: 'User Song',
-        slug: 'user-song-12345',
         key: 'D',
         metadata: { 
           isPublic: true, 
           ratings: { average: 0, count: 0 }, 
           views: 0,
-          createdBy: MOCK_USER_IDS.REGULAR_USER
+          createdBy: MOCK_USER_IDS.REGULAR_USER.toString()
         }
       });
 
@@ -324,12 +320,11 @@ describe('Songs API', () => {
       // Test that different users see appropriate content
       const adminSong = await Song.create({
         title: 'Admin Only Song',
-        slug: 'admin-song-12345',
         metadata: { 
           isPublic: false, 
           ratings: { average: 0, count: 0 }, 
           views: 0,
-          createdBy: MOCK_USER_IDS.ADMIN_USER
+          createdBy: MOCK_USER_IDS.ADMIN_USER.toString()
         }
       });
 

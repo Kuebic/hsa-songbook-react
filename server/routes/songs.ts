@@ -135,11 +135,13 @@ router.get('/:slug',
       }
       
       // Check if user can access private songs
-      if (song.metadata?.isPublic === false && !req.auth?.userId) {
-        return res.status(404).json({
-          error: 'Song not found',
-          code: 'NOT_FOUND'
-        });
+      if (song.metadata?.isPublic === false) {
+        if (!req.auth?.userId || song.metadata?.createdBy?.toString() !== req.auth.userId) {
+          return res.status(404).json({
+            error: 'Song not found',
+            code: 'NOT_FOUND'
+          });
+        }
       }
       
       // Get decompressed chord data

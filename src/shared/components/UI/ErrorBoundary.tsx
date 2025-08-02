@@ -1,4 +1,5 @@
 import { Component, type ReactNode, type ErrorInfo } from 'react'
+import { errorReporting } from '../../services/errorReporting'
 import { Button } from './Button'
 import { Card } from './Card'
 
@@ -10,6 +11,7 @@ interface Props {
 interface State {
   hasError: boolean
   error?: Error
+  errorId?: string
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -23,7 +25,17 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
+    // Report error using centralized service instead of console.error
+    const errorId = errorReporting.reportComponentError(
+      `ErrorBoundary caught an error: ${error.message}`,
+      error,
+      {
+        componentStack: errorInfo.componentStack,
+        errorBoundary: 'ErrorBoundary',
+      }
+    );
+
+    this.setState({ errorId });
   }
 
   render() {

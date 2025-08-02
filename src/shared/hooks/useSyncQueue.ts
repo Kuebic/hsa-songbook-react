@@ -7,6 +7,7 @@ import { useCallback, useEffect } from 'react';
 import { useSyncQueueStore } from '../stores/sync-queue-store';
 import { useOfflineStatus } from './useOfflineStatus';
 import { useBackgroundSync } from './useServiceWorker';
+import { errorReporting } from '../services/errorReporting';
 
 export const useSyncQueue = () => {
   const {
@@ -34,7 +35,7 @@ export const useSyncQueue = () => {
   const queueOperation = useCallback((
     type: 'CREATE' | 'UPDATE' | 'DELETE',
     resource: 'song' | 'setlist' | 'arrangement',
-    data: any,
+    data: Record<string, unknown>,
     maxRetries: number = 3
   ) => {
     addOperation({
@@ -46,7 +47,18 @@ export const useSyncQueue = () => {
 
     // Schedule background sync if online
     if (isOnline) {
-      scheduleSync(`${resource}-sync`).catch(console.error);
+      scheduleSync(`${resource}-sync`).catch((error) => {
+        // Use centralized error reporting instead of console.error
+        errorReporting.reportSyncError(
+          `Failed to schedule background sync for ${resource}`,
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            resource,
+            operation: 'schedule_sync',
+            hook: 'useSyncQueue',
+          }
+        );
+      });
     }
   }, [addOperation, isOnline, scheduleSync]);
 
@@ -96,7 +108,7 @@ export const useSyncQueue = () => {
   /**
    * Process a single operation (mock implementation)
    */
-  const processOperation = async (operation: any): Promise<void> => {
+  const processOperation = async (operation: { type: string; resource: string; data: Record<string, unknown>; id: string }): Promise<void> => {
     // This would be replaced with actual API calls
     const delay = Math.random() * 1000 + 500; // 500-1500ms
     await new Promise(resolve => setTimeout(resolve, delay));
@@ -162,11 +174,11 @@ export const useSyncQueue = () => {
 export const useOperationQueue = () => {
   const { queueOperation } = useSyncQueue();
 
-  const queueSongCreate = useCallback((songData: any) => {
+  const queueSongCreate = useCallback((songData: Record<string, unknown>) => {
     queueOperation('CREATE', 'song', songData);
   }, [queueOperation]);
 
-  const queueSongUpdate = useCallback((songId: string, songData: any) => {
+  const queueSongUpdate = useCallback((songId: string, songData: Record<string, unknown>) => {
     queueOperation('UPDATE', 'song', { id: songId, ...songData });
   }, [queueOperation]);
 
@@ -174,11 +186,11 @@ export const useOperationQueue = () => {
     queueOperation('DELETE', 'song', { id: songId });
   }, [queueOperation]);
 
-  const queueSetlistCreate = useCallback((setlistData: any) => {
+  const queueSetlistCreate = useCallback((setlistData: Record<string, unknown>) => {
     queueOperation('CREATE', 'setlist', setlistData);
   }, [queueOperation]);
 
-  const queueSetlistUpdate = useCallback((setlistId: string, setlistData: any) => {
+  const queueSetlistUpdate = useCallback((setlistId: string, setlistData: Record<string, unknown>) => {
     queueOperation('UPDATE', 'setlist', { id: setlistId, ...setlistData });
   }, [queueOperation]);
 

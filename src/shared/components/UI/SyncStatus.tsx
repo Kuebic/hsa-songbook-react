@@ -6,6 +6,13 @@
 import React, { useState } from 'react';
 import { cn } from '../../utils/cn';
 import { useSyncQueueStore } from '../../stores/sync-queue-store';
+import { 
+  StatusCard,
+  SyncIcon,
+  StatusHeading,
+  StatusCaption,
+  StatusActions
+} from './index';
 
 export interface SyncStatusProps {
   /** CSS class name */
@@ -59,29 +66,31 @@ export const SyncStatus = React.memo<SyncStatusProps>(({
     return `${days}d ago`;
   };
 
+  const getSyncVariant = (): 'info' | 'error' | 'warning' | 'success' => {
+    if (isSyncing) return 'info';
+    if (stats.failed > 0) return 'error';
+    if (stats.pending > 0) return 'warning';
+    return 'success';
+  };
+
   if (compact) {
+    const variant = getSyncVariant();
+    
     return (
-      <div
-        className={cn(
-          'inline-flex items-center space-x-2 px-2 py-1 rounded-lg text-xs',
-          isSyncing
-            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-            : stats.failed > 0
-            ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-            : stats.pending > 0
-            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-            : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-          className
-        )}
+      <StatusCard 
+        variant={variant} 
+        size="xs" 
+        padding="xs"
+        className={cn('inline-flex items-center space-x-2 rounded-lg', className)}
         title={`Sync: ${stats.pending} pending, ${stats.failed} failed`}
       >
-        {isSyncing && (
-          <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        )}
+        <SyncIcon 
+          variant={variant} 
+          size="xs" 
+          animate={isSyncing}
+        />
         
-        <span>
+        <StatusCaption colorVariant={variant} className="text-xs">
           {isSyncing
             ? 'Syncing...'
             : stats.failed > 0
@@ -90,30 +99,31 @@ export const SyncStatus = React.memo<SyncStatusProps>(({
             ? `${stats.pending} pending`
             : 'Synced'
           }
-        </span>
-      </div>
+        </StatusCaption>
+      </StatusCard>
     );
   }
 
+  const variant = getSyncVariant();
+
   return (
-    <div
-      className={cn(
-        'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4',
-        className
-      )}
+    <StatusCard 
+      variant={variant} 
+      size="md" 
+      padding="md"
+      className={className}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
-          <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+          <SyncIcon 
+            variant={variant} 
+            size="sm" 
+            animate={isSyncing}
+          />
+          <StatusHeading colorVariant={variant} className="text-sm">
             Sync Status
-          </h3>
-          
-          {isSyncing && (
-            <svg className="w-4 h-4 animate-spin text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          )}
+          </StatusHeading>
         </div>
         
         {showDetails && (
@@ -129,30 +139,30 @@ export const SyncStatus = React.memo<SyncStatusProps>(({
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-3">
         <div className="text-center">
-          <div className="text-lg font-semibold text-green-600 dark:text-green-400">
+          <StatusHeading colorVariant="success" className="text-lg">
             {stats.completed}
-          </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">
+          </StatusHeading>
+          <StatusCaption colorVariant="neutral" className="text-xs">
             Completed
-          </div>
+          </StatusCaption>
         </div>
         
         <div className="text-center">
-          <div className="text-lg font-semibold text-yellow-600 dark:text-yellow-400">
+          <StatusHeading colorVariant="warning" className="text-lg">
             {stats.pending}
-          </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">
+          </StatusHeading>
+          <StatusCaption colorVariant="neutral" className="text-xs">
             Pending
-          </div>
+          </StatusCaption>
         </div>
         
         <div className="text-center">
-          <div className="text-lg font-semibold text-red-600 dark:text-red-400">
+          <StatusHeading colorVariant="error" className="text-lg">
             {stats.failed}
-          </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">
+          </StatusHeading>
+          <StatusCaption colorVariant="neutral" className="text-xs">
             Failed
-          </div>
+          </StatusCaption>
         </div>
       </div>
 
@@ -173,7 +183,7 @@ export const SyncStatus = React.memo<SyncStatusProps>(({
       )}
 
       {/* Status message */}
-      <div className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+      <StatusCaption colorVariant="neutral" className="text-xs mb-3">
         {isSyncing
           ? 'Synchronizing changes with server...'
           : stats.failed > 0
@@ -182,63 +192,69 @@ export const SyncStatus = React.memo<SyncStatusProps>(({
           ? `${stats.pending} operations waiting to sync.`
           : 'All changes synchronized.'
         }
-      </div>
+      </StatusCaption>
 
       {/* Last sync time */}
-      <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+      <StatusCaption colorVariant="neutral" className="text-xs mb-3">
         Last sync: {formatLastSyncTime(lastSyncTime)}
-      </div>
+      </StatusCaption>
 
       {/* Actions */}
-      <div className="flex space-x-2">
+      <StatusActions>
         {stats.completed > 0 && (
-          <button
+          <StatusActions.Custom
             onClick={clearCompleted}
-            className="px-2 py-1 text-xs text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
+            variant="outline"
+            size="xs"
           >
             Clear Completed
-          </button>
+          </StatusActions.Custom>
         )}
         
         {stats.failed > 0 && (
-          <button
+          <StatusActions.Custom
             onClick={clearAll}
-            className="px-2 py-1 text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200 border border-red-300 dark:border-red-600 rounded hover:bg-red-50 dark:hover:bg-red-900/30"
+            variant="outline"
+            size="xs"
+            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200 border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
           >
             Clear All
-          </button>
+          </StatusActions.Custom>
         )}
-      </div>
+      </StatusActions>
 
       {/* Expanded details */}
       {isExpanded && showDetails && failedOps.length > 0 && (
         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <h4 className="text-xs font-medium text-gray-900 dark:text-gray-100 mb-2">
+          <StatusHeading colorVariant="neutral" className="text-xs mb-2">
             Failed Operations
-          </h4>
+          </StatusHeading>
           <div className="space-y-2 max-h-32 overflow-y-auto">
             {failedOps.map((op) => (
-              <div
+              <StatusCard
                 key={op.id}
-                className="text-xs p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800"
+                variant="error"
+                size="xs"
+                padding="xs"
+                className="text-xs"
               >
-                <div className="font-medium text-red-800 dark:text-red-200">
+                <StatusCaption colorVariant="error" className="font-medium">
                   {op.type} {op.resource}
-                </div>
+                </StatusCaption>
                 {op.lastError && (
-                  <div className="text-red-600 dark:text-red-400 mt-1">
+                  <StatusCaption colorVariant="error" className="mt-1">
                     {op.lastError}
-                  </div>
+                  </StatusCaption>
                 )}
-                <div className="text-red-500 dark:text-red-500 mt-1">
+                <StatusCaption colorVariant="error" className="mt-1">
                   Retried {op.retryCount}/{op.maxRetries} times
-                </div>
-              </div>
+                </StatusCaption>
+              </StatusCard>
             ))}
           </div>
         </div>
       )}
-    </div>
+    </StatusCard>
   );
 });
 

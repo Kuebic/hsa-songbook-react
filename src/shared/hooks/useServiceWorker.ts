@@ -6,6 +6,19 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Workbox } from 'workbox-window';
 import { useOfflineStore } from '../stores/offline-store';
+import { errorReporting } from '../services/errorReporting';
+
+// Service Worker message types
+interface ServiceWorkerMessage {
+  type: string;
+  [key: string]: unknown;
+}
+
+interface SyncMessage extends ServiceWorkerMessage {
+  type: 'SCHEDULE_SYNC';
+  tag: string;
+  data?: Record<string, unknown>;
+}
 
 export interface ServiceWorkerStatus {
   isRegistered: boolean;
@@ -103,7 +116,15 @@ export const useServiceWorker = () => {
         };
       })
       .catch((error) => {
-        console.error('Service Worker registration failed:', error);
+        // Use centralized error reporting instead of console.error
+        errorReporting.reportServiceWorkerError(
+          'Service Worker registration failed',
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            operation: 'registration',
+            serviceWorkerUrl: '/sw.js',
+          }
+        );
         setStatus(prev => ({ ...prev, error: error.message }));
       });
 
@@ -148,21 +169,36 @@ export const useServiceWorker = () => {
       // Skip waiting and activate new service worker
       await workbox.messageSkipWaiting();
     } catch (error) {
-      console.error('Failed to update service worker:', error);
+      // Use centralized error reporting instead of console.error
+      errorReporting.reportServiceWorkerError(
+        'Failed to update service worker',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          operation: 'update',
+        }
+      );
       setStatus(prev => ({ ...prev, error: (error as Error).message, isUpdating: false }));
       setUpdateStatus(false, false);
     }
   }, [workbox, setUpdateStatus]);
 
   // Send message to service worker
-  const sendMessage = useCallback(async (message: any) => {
+  const sendMessage = useCallback(async (message: ServiceWorkerMessage) => {
     if (!workbox) return;
 
     try {
       const response = await workbox.messageSW(message);
       return response;
     } catch (error) {
-      console.error('Failed to send message to service worker:', error);
+      // Use centralized error reporting instead of console.error
+      errorReporting.reportServiceWorkerError(
+        'Failed to send message to service worker',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          operation: 'send_message',
+          message: JSON.stringify(message),
+        }
+      );
       throw error;
     }
   }, [workbox]);
@@ -173,7 +209,14 @@ export const useServiceWorker = () => {
       const response = await sendMessage({ type: 'GET_CACHE_INFO' });
       return response;
     } catch (error) {
-      console.error('Failed to get cache info:', error);
+      // Use centralized error reporting instead of console.error
+      errorReporting.reportServiceWorkerError(
+        'Failed to get cache info',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          operation: 'get_cache_info',
+        }
+      );
       return null;
     }
   }, [sendMessage]);
@@ -187,7 +230,15 @@ export const useServiceWorker = () => {
       });
       return response;
     } catch (error) {
-      console.error('Failed to clear cache:', error);
+      // Use centralized error reporting instead of console.error
+      errorReporting.reportServiceWorkerError(
+        'Failed to clear cache',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          operation: 'clear_cache',
+          cacheNames: cacheNames ? JSON.stringify(cacheNames) : 'all',
+        }
+      );
       throw error;
     }
   }, [sendMessage]);
@@ -205,7 +256,7 @@ export const useServiceWorker = () => {
 export const useBackgroundSync = () => {
   const { sendMessage } = useServiceWorker();
 
-  const scheduleSync = useCallback(async (tag: string, data?: any) => {
+  const scheduleSync = useCallback(async (tag: string, data?: Record<string, unknown>) => {
     try {
       await sendMessage({
         type: 'SCHEDULE_SYNC',
@@ -213,7 +264,16 @@ export const useBackgroundSync = () => {
         data,
       });
     } catch (error) {
-      console.error('Failed to schedule background sync:', error);
+      // Use centralized error reporting instead of console.error
+      errorReporting.reportServiceWorkerError(
+        'Failed to schedule background sync',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          operation: 'schedule_sync',
+          tag,
+          data: data ? JSON.stringify(data) : undefined,
+        }
+      );
       throw error;
     }
   }, [sendMessage]);

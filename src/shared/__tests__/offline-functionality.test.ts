@@ -36,6 +36,11 @@ const mockNavigator = {
     register: vi.fn(),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
+    ready: Promise.resolve({
+      sync: {
+        register: vi.fn()
+      }
+    } as unknown as ServiceWorkerRegistration),
   },
 };
 
@@ -389,7 +394,7 @@ describe('Background Sync', () => {
     };
     
     // Mock service worker registration with sync capability
-    mockNavigator.serviceWorker.ready = Promise.resolve(mockRegistration as any);
+    mockNavigator.serviceWorker.ready = Promise.resolve(mockRegistration as unknown as ServiceWorkerRegistration);
     
     // This would be handled by the background sync logic
     expect(mockRegistration.sync.register).toBeDefined();

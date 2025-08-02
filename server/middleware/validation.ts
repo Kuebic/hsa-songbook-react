@@ -51,11 +51,11 @@ export const validateSchema = (schema: ZodSchema, source: 'body' | 'query' | 'pa
         return res.status(400).json({
           error: 'Validation failed',
           code: 'VALIDATION_ERROR',
-          details: error.errors.map(err => ({
-            field: err.path.join('.'),
+          details: error.errors?.map(err => ({
+            field: err.path?.join('.') || 'unknown',
             message: err.message,
             code: err.code
-          }))
+          })) || []
         });
       }
       
