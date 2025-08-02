@@ -8,7 +8,7 @@ interface CardProps {
 
 export function Card({ children, className }: CardProps) {
   return (
-    <div className={cn('bg-white p-6 rounded-lg shadow', className)}>
+    <div className={cn('bg-white dark:bg-gray-800 p-6 rounded-lg shadow dark:shadow-gray-700/50 transition-colors duration-200', className)}>
       {children}
     </div>
   )
@@ -23,17 +23,17 @@ interface FeatureCardProps {
 }
 
 const colorClasses = {
-  blue: 'bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-200',
-  green: 'bg-green-50 hover:bg-green-100 text-green-800 border-green-200', 
-  purple: 'bg-purple-50 hover:bg-purple-100 text-purple-800 border-purple-200',
-  orange: 'bg-orange-50 hover:bg-orange-100 text-orange-800 border-orange-200',
+  blue: 'bg-blue-50 hover:bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800',
+  green: 'bg-green-50 hover:bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:hover:bg-green-900/30 dark:text-green-300 dark:border-green-800', 
+  purple: 'bg-purple-50 hover:bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:hover:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800',
+  orange: 'bg-orange-50 hover:bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800',
 }
 
 const textColorClasses = {
-  blue: 'text-blue-600',
-  green: 'text-green-600',
-  purple: 'text-purple-600', 
-  orange: 'text-orange-600',
+  blue: 'text-blue-600 dark:text-blue-400',
+  green: 'text-green-600 dark:text-green-400',
+  purple: 'text-purple-600 dark:text-purple-400', 
+  orange: 'text-orange-600 dark:text-orange-400',
 }
 
 export function FeatureCard({ title, description, color, children }: FeatureCardProps) {
