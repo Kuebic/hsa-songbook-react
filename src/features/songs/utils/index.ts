@@ -4,3 +4,4 @@
  */
 
 export * from './chordHelpers';
+export * from './searchUtils';

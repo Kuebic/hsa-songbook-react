@@ -6,6 +6,7 @@
 import { openDB } from 'idb';
 import type { IDBPDatabase, IDBPTransaction } from 'idb';
 import type { StorageConfig } from '../../types/storage.types';
+import { errorReporting } from '../errorReporting';
 
 /**
  * Handles low-level IndexedDB database operations
@@ -13,8 +14,11 @@ import type { StorageConfig } from '../../types/storage.types';
 export class StorageDatabase {
   private db: IDBPDatabase | null = null;
   private isInit = false;
+  private config: StorageConfig;
 
-  constructor(private config: StorageConfig) {}
+  constructor(config: StorageConfig) {
+    this.config = config;
+  }
 
   /**
    * Initialize the IndexedDB database
@@ -31,7 +35,17 @@ export class StorageDatabase {
       
       this.isInit = true;
     } catch (error) {
-      console.error('Failed to initialize IndexedDB:', error);
+      // Use centralized error reporting instead of console.error
+      errorReporting.reportStorageError(
+        'Failed to initialize IndexedDB',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          service: 'StorageDatabase',
+          operation: 'initialize',
+          dbName: this.config.dbName,
+          dbVersion: this.config.dbVersion,
+        }
+      );
       throw error;
     }
   }

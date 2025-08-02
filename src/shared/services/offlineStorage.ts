@@ -23,6 +23,7 @@ import { StorageDatabase } from './storage/StorageDatabase';
 import { StorageOperations } from './storage/StorageOperations';
 import { StorageQuota as StorageQuotaService } from './storage/StorageQuota';
 import { StorageEvents } from './storage/StorageEvents';
+import { errorReporting } from './errorReporting';
 
 /**
  * Core storage orchestrator that coordinates all storage operations
@@ -88,8 +89,13 @@ export class OfflineStorage {
     // Initialize service classes
     this.events = new StorageEvents({ debug: process.env.NODE_ENV === 'development' });
     this.database = new StorageDatabase(this.config);
-    this.operations = new StorageOperations(this.database, this.config, this.events.emit.bind(this.events));
-    this.quotaService = new StorageQuotaService(this.database, this.config, this.events.emit.bind(this.events));
+    // Create type-safe emit wrapper
+    const emitWrapper = <T = unknown>(event: string, data: T) => {
+      this.events.emit(event as StorageEventType, data);
+    };
+    
+    this.operations = new StorageOperations(this.database, this.config, emitWrapper);
+    this.quotaService = new StorageQuotaService(this.database, this.config, emitWrapper);
 
     // Auto-initialize on construction
     this.initialize().catch(this.handleError.bind(this));
@@ -101,10 +107,15 @@ export class OfflineStorage {
   private handleError(error: unknown): void {
     const errorMessage = error instanceof Error ? error.message : 'Unknown storage error';
     
-    // In development, log to console
-    if (process.env.NODE_ENV === 'development') {
-      console.error('[OfflineStorage]', errorMessage, error);
-    }
+    // Report error using centralized service instead of console.error
+    errorReporting.reportStorageError(
+      `[OfflineStorage] ${errorMessage}`,
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        service: 'OfflineStorage',
+        timestamp: Date.now(),
+      }
+    );
     
     // Emit error event for listeners
     this.events.emit('storage_error', { error: errorMessage, timestamp: Date.now() });
@@ -122,7 +133,15 @@ export class OfflineStorage {
       await this.database.initialize();
       await this.quotaService.initializeStorageStats();
     } catch (error) {
-      console.error('Failed to initialize offline storage:', error);
+      // Use centralized error reporting instead of console.error
+      errorReporting.reportStorageError(
+        'Failed to initialize offline storage',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          operation: 'initialize',
+          service: 'OfflineStorage',
+        }
+      );
       throw error;
     }
   }
@@ -532,7 +551,7 @@ export class OfflineStorage {
   /**
    * Create error result
    */
-  private createErrorResult<T = never>(error: string): StorageOperationResult<T> {
+  private createErrorResult<T = unknown>(error: string): StorageOperationResult<T> {
     return {
       success: false,
       error,
@@ -544,7 +563,7 @@ export class OfflineStorage {
   /**
    * Handle storage errors
    */
-  private handleStorageError(error: unknown, operation: StorageOperationResult['operation']): StorageOperationResult<never> {
+  private handleStorageError<T = unknown>(error: unknown, operation: StorageOperationResult['operation']): StorageOperationResult<T> {
     let errorMessage = 'Unknown storage error';
     
     if (error instanceof Error) {
@@ -562,7 +581,7 @@ export class OfflineStorage {
       error: errorMessage,
       timestamp: Date.now(),
       operation,
-    } as StorageOperationResult<never>;
+    };
   }
 
   /**

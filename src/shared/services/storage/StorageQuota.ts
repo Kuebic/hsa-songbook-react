@@ -13,16 +13,25 @@ import type {
   CachedSetlist
 } from '../../types/storage.types';
 import { StorageDatabase } from './StorageDatabase';
+import { errorReporting } from '../errorReporting';
 
 /**
  * Manages storage quota, statistics, and cleanup operations
  */
 export class StorageQuota {
+  private db: StorageDatabase;
+  private config: StorageConfig;
+  private emit: <T = unknown>(event: string, data: T) => void;
+
   constructor(
-    private db: StorageDatabase,
-    private config: StorageConfig,
-    private emit: <T = unknown>(event: string, data: T) => void
-  ) {}
+    db: StorageDatabase,
+    config: StorageConfig,
+    emit: <T = unknown>(event: string, data: T) => void
+  ) {
+    this.db = db;
+    this.config = config;
+    this.emit = emit;
+  }
 
   /**
    * Get comprehensive storage statistics
@@ -39,7 +48,6 @@ export class StorageQuota {
       if (!stats) {
         // Initialize default stats
         stats = {
-          id: 'main',
           totalSongs: 0,
           totalSetlists: 0,
           totalPreferences: 0,
@@ -58,9 +66,7 @@ export class StorageQuota {
           },
           cacheHitRate: 0,
           averageAccessTime: 0,
-          lastCleanup: Date.now(),
-          createdAt: Date.now(),
-          updatedAt: Date.now()
+          lastCleanup: Date.now()
         };
         
         await this.db.put(this.config.stores.storageStats, stats);
@@ -80,7 +86,22 @@ export class StorageQuota {
         totalSetlists: setlistCount,
         totalPreferences: prefCount,
         totalSyncOperations: syncCount,
-        updatedAt: Date.now()
+        // Ensure all required fields are defined
+        songsSize: stats.songsSize || 0,
+        setlistsSize: stats.setlistsSize || 0,
+        preferencesSize: stats.preferencesSize || 0,
+        syncQueueSize: stats.syncQueueSize || 0,
+        cacheHitRate: stats.cacheHitRate || 0,
+        averageAccessTime: stats.averageAccessTime || 0,
+        lastCleanup: stats.lastCleanup || Date.now(),
+        quota: stats.quota || {
+          total: 0,
+          used: 0,
+          available: 0,
+          percentage: 0,
+          warning: false,
+          lastChecked: Date.now()
+        }
       };
 
       // Update the stored stats
@@ -154,7 +175,7 @@ export class StorageQuota {
 
       // Clean up old songs
       if (config.maxAge) {
-        const songs = await this.db.getAll(this.config.stores.songs);
+        const songs = await this.db.getAll(this.config.stores.songs) as CachedSong[];
         const oldSongs = songs.filter((song: CachedSong) => {
           const age = now - (song.lastAccessedAt || song.updatedAt);
           return age > config.maxAge! &&
@@ -170,7 +191,7 @@ export class StorageQuota {
 
       // Clean up old setlists
       if (config.maxAge) {
-        const setlists = await this.db.getAll(this.config.stores.setlists);
+        const setlists = await this.db.getAll(this.config.stores.setlists) as CachedSetlist[];
         const oldSetlists = setlists.filter((setlist: CachedSetlist) => {
           const age = now - (setlist.lastUsedAt || setlist.updatedAt);
           return age > config.maxAge! &&
@@ -213,7 +234,15 @@ export class StorageQuota {
       // This will recalculate and update the stats
       await this.getStorageStats();
     } catch (error) {
-      console.error('Failed to update storage stats:', error);
+      // Use centralized error reporting instead of console.error
+      errorReporting.reportStorageError(
+        'Failed to update storage stats',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          service: 'StorageQuota',
+          operation: 'updateStorageStats',
+        }
+      );
     }
   }
 
@@ -225,7 +254,6 @@ export class StorageQuota {
       const existing = await this.db.get(this.config.stores.storageStats, 'main');
       if (!existing) {
         const initialStats: StorageStats = {
-          id: 'main',
           totalSongs: 0,
           totalSetlists: 0,
           totalPreferences: 0,
@@ -244,15 +272,21 @@ export class StorageQuota {
           },
           cacheHitRate: 0,
           averageAccessTime: 0,
-          lastCleanup: Date.now(),
-          createdAt: Date.now(),
-          updatedAt: Date.now()
+          lastCleanup: Date.now()
         };
 
         await this.db.put(this.config.stores.storageStats, initialStats);
       }
     } catch (error) {
-      console.error('Failed to initialize storage stats:', error);
+      // Use centralized error reporting instead of console.error
+      errorReporting.reportStorageError(
+        'Failed to initialize storage stats',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          service: 'StorageQuota',
+          operation: 'initializeStorageStats',
+        }
+      );
     }
   }
 
@@ -330,11 +364,11 @@ export class StorageQuota {
   /**
    * Create error result
    */
-  private createErrorResult<T = never>(error: string): StorageOperationResult<T> {
+  private createErrorResult<T = unknown>(error: string): StorageOperationResult<T> {
     return {
       success: false,
       error,
-      operation: 'unknown',
+      operation: 'read',
       timestamp: Date.now()
     };
   }
@@ -342,7 +376,7 @@ export class StorageQuota {
   /**
    * Handle storage errors
    */
-  private handleStorageError(error: unknown, operation: StorageOperationResult['operation']): StorageOperationResult<never> {
+  private handleStorageError<T = unknown>(error: unknown, operation: StorageOperationResult['operation']): StorageOperationResult<T> {
     const errorMessage = error instanceof Error ? error.message : 'Unknown storage error';
     
     // Emit error event

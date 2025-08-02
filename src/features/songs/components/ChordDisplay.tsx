@@ -6,6 +6,7 @@
 import React, { useMemo, useCallback, useEffect } from 'react';
 import ChordSheetJS from 'chordsheetjs';
 import { cn } from '../../../shared/utils/cn';
+import { errorReporting } from '../../../shared/services/errorReporting';
 import type { ChordDisplayProps } from '../types/chord.types';
 import { 
   THEME_STYLES, 
@@ -103,7 +104,17 @@ export const ChordDisplay = React.memo<ChordDisplayProps>(({
         error: null
       };
     } catch (err) {
-      console.error('Error processing ChordPro content:', err);
+      // Use centralized error reporting instead of console.error
+      errorReporting.reportComponentError(
+        'Error processing ChordPro content',
+        err instanceof Error ? err : new Error(String(err)),
+        {
+          component: 'ChordDisplay',
+          operation: 'parse_chordpro',
+          content: content?.substring(0, 100) + '...', // Log first 100 chars for context
+          transpose: validatedTranspose,
+        }
+      );
       return {
         song: null,
         formattedHtml: '',
