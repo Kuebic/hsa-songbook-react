@@ -24,6 +24,8 @@ interface DraggableSetlistItemProps {
   isDragging?: boolean;
   isDraggedOver?: boolean;
   isOverlay?: boolean;
+  isFocused?: boolean;
+  isNavigating?: boolean;
 }
 
 export const DraggableSetlistItem: React.FC<DraggableSetlistItemProps> = ({
@@ -33,7 +35,9 @@ export const DraggableSetlistItem: React.FC<DraggableSetlistItemProps> = ({
   compactMode = false,
   isDragging = false,
   isDraggedOver = false,
-  isOverlay = false
+  isOverlay = false,
+  isFocused = false,
+  isNavigating = false
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showTransposeControls, setShowTransposeControls] = useState(false);
@@ -104,6 +108,8 @@ export const DraggableSetlistItem: React.FC<DraggableSetlistItemProps> = ({
     'setlist-item group relative bg-white border border-gray-200 rounded-lg p-4 mb-2 shadow-sm transition-all duration-200',
     {
       'opacity-50': isDragging || isSortableDragging,
+      'ring-2 ring-blue-500 ring-offset-2': isFocused && isNavigating,
+      'bg-blue-50 border-blue-300': isFocused && !isDragging,
       'ring-2 ring-blue-500 ring-opacity-50': isDraggedOver,
       'shadow-lg border-blue-300': isDragging || isSortableDragging,
       'cursor-grabbing': isDragging,

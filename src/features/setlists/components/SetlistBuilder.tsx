@@ -26,7 +26,7 @@ import {
   sortableKeyboardCoordinates
 } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis, restrictToWindowEdges } from '@dnd-kit/modifiers';
-import { useSetlistStore, useSetlist, useSetlistDragState, useSetlistError } from '../stores';
+import { useSetlistStore, useSetlist, useSetlistDragState, useSetlistError, useSetlistKeyboardState } from '../stores';
 import type { DragDropResult } from '../types';
 import { Card } from '../../../shared/components';
 import { DraggableSetlistItem } from './DraggableSetlistItem';
@@ -54,6 +54,7 @@ export const SetlistBuilder: React.FC<SetlistBuilderProps> = ({
 }) => {
   const setlist = useSetlist();
   const dragState = useSetlistDragState();
+  const keyboardState = useSetlistKeyboardState();
   const error = useSetlistError();
   
   const {
@@ -182,7 +183,7 @@ export const SetlistBuilder: React.FC<SetlistBuilderProps> = ({
     }
   }, [onCancel]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts and navigation
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Only handle shortcuts when focused on the setlist builder
@@ -190,6 +191,7 @@ export const SetlistBuilder: React.FC<SetlistBuilderProps> = ({
         return;
       }
 
+      // Handle global keyboard shortcuts first
       if (event.ctrlKey || event.metaKey) {
         switch (event.key) {
           case 's':
@@ -207,6 +209,30 @@ export const SetlistBuilder: React.FC<SetlistBuilderProps> = ({
               // Undo
               useSetlistStore.getState().undo();
             }
+            break;
+        }
+        return;
+      }
+
+      // Handle navigation keys when not in an input/textarea
+      const target = event.target as HTMLElement;
+      const isInInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true';
+      
+      if (!isInInput && !readOnly) {
+        const { navigateKeyboard, selectCurrentItem } = useSetlistStore.getState();
+        
+        switch (event.key) {
+          case 'ArrowUp':
+            event.preventDefault();
+            navigateKeyboard('up');
+            break;
+          case 'ArrowDown':
+            event.preventDefault();
+            navigateKeyboard('down');
+            break;
+          case 'Enter':
+            event.preventDefault();
+            selectCurrentItem();
             break;
         }
       }
@@ -244,7 +270,8 @@ export const SetlistBuilder: React.FC<SetlistBuilderProps> = ({
     >
       {/* Hidden instructions for screen readers */}
       <div id="setlist-instructions" className="sr-only">
-        Use drag and drop to reorder songs. Use keyboard navigation with arrow keys and Enter to select. 
+        Use drag and drop to reorder songs. Use arrow keys to navigate between songs, Enter to select. 
+        For keyboard drag and drop: Tab to a song, press Space to pick up, arrow keys to move, Space to drop.
         Press Ctrl+S to save, Ctrl+Z to undo, Ctrl+Shift+Z to redo.
       </div>
 
@@ -313,6 +340,8 @@ export const SetlistBuilder: React.FC<SetlistBuilderProps> = ({
                       compactMode={compactMode}
                       isDragging={dragState.isDragging && dragState.draggedItemId === song.id}
                       isDraggedOver={dragState.dragOverItemId === song.id}
+                      isFocused={keyboardState.focusedItemIndex === index}
+                      isNavigating={keyboardState.isNavigating}
                     />
                   ))}
                 </SortableContext>
