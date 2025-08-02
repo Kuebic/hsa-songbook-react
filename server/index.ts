@@ -11,6 +11,7 @@ import { DatabaseConnection } from './config/database';
 import songsRouter from './routes/songs';
 import arrangementsRouter from './routes/arrangements';
 import setlistsRouter from './routes/setlists';
+import { handleClerkWebhook } from './routes/webhooks/clerk';
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -56,6 +57,9 @@ app.get('/api/health', (req, res) => {
     database: dbStatus ? 'connected' : 'disconnected'
   });
 });
+
+// Webhook routes (before general middleware)
+app.post('/api/webhooks/clerk', express.raw({ type: 'application/json' }), handleClerkWebhook);
 
 // API routes
 app.use('/api/songs', songsRouter);
