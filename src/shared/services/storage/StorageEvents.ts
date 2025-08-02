@@ -8,6 +8,7 @@ import type {
   StorageEventType,
   StorageEventCallback
 } from '../../types/storage.types';
+import { errorReporting } from '../errorReporting';
 
 /**
  * Manages event handling for storage operations
@@ -108,7 +109,17 @@ export class StorageEvents {
       try {
         callback(event);
       } catch (error) {
-        console.error(`[StorageEvents] Error in event callback ${index} for '${eventType}':`, error);
+        // Use centralized error reporting instead of console.error
+        errorReporting.reportStorageError(
+          `Error in event callback ${index} for '${eventType}' event`,
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            service: 'StorageEvents',
+            operation: 'event_callback',
+            eventType,
+            callbackIndex: index,
+          }
+        );
         
         // Emit error event for this callback failure
         this.emitCallbackError(eventType, error, index);

@@ -33,7 +33,10 @@ describe('useSearchQuery', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    mockSearchParams.clear();
+    // Clear all entries from search params
+    for (const key of Array.from(mockSearchParams.keys())) {
+      mockSearchParams.delete(key);
+    }
   });
 
   afterEach(() => {
@@ -53,7 +56,7 @@ describe('useSearchQuery', () => {
 
     it('should initialize with custom default filters', () => {
       const wrapper = createWrapper();
-      const defaultFilters = { query: 'test', difficulty: ['beginner'] as const };
+      const defaultFilters = { query: 'test', difficulty: ['beginner' as const] };
       
       const { result } = renderHook(
         () => useSearchQuery({ defaultFilters }),

@@ -305,7 +305,7 @@ songSchema.statics.searchSongs = function(query: string, options: SearchOptions 
   }
 
   // Configure sorting
-  const sort: Record<string, unknown> = {};
+  let sort: Record<string, unknown> = {};
   switch (sortBy) {
     case 'relevance':
       sort = query.trim() ? { score: { $meta: 'textScore' } } : { 'metadata.ratings.average': -1 };

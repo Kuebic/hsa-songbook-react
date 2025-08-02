@@ -31,7 +31,7 @@ const fetchSearchResults = async (filters: SearchFilters): Promise<SearchResult>
   // Mock search results based on filters
   const mockSongs = [
     {
-      _id: '1',
+      id: '1',
       title: 'Amazing Grace',
       artist: 'Traditional',
       slug: 'amazing-grace',
@@ -51,7 +51,7 @@ const fetchSearchResults = async (filters: SearchFilters): Promise<SearchResult>
       updatedAt: new Date('2023-01-01')
     },
     {
-      _id: '2',
+      id: '2',
       title: 'How Great Thou Art',
       artist: 'Carl Boberg',
       slug: 'how-great-thou-art',
@@ -71,7 +71,7 @@ const fetchSearchResults = async (filters: SearchFilters): Promise<SearchResult>
       updatedAt: new Date('2023-01-02')
     },
     {
-      _id: '3',
+      id: '3',
       title: 'Holy Spirit',
       artist: 'Francesca Battistelli',
       slug: 'holy-spirit',
@@ -315,7 +315,7 @@ export function useInvalidateSearchResults() {
       // Invalidate specific search
       await queryClient.invalidateQueries({
         queryKey: ['songs-search'],
-        predicate: query => {
+        predicate: (query: { queryKey: unknown[] }) => {
           if (!query.queryKey[1]) return false;
           const queryFilters = query.queryKey[1] as SearchFilters;
           
