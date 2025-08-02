@@ -1,5 +1,28 @@
 import mongoose from 'mongoose';
 
+/**
+ * MongoDB database statistics interface
+ */
+interface MongoDBStats {
+  dataSize: number;
+  storageSize: number;
+  indexSize: number;
+  [key: string]: unknown;
+}
+
+/**
+ * Formatted storage statistics interface
+ */
+interface StorageStats {
+  dataSize: number;
+  storageSize: number;
+  indexSize: number;
+  totalSize: number;
+  dataSizeMB: number;
+  storageSizeMB: number;
+  totalSizeMB: number;
+}
+
 export class DatabaseConnection {
   private static instance: DatabaseConnection;
   private isConnected = false;
@@ -58,23 +81,15 @@ export class DatabaseConnection {
   }
 
   getConnectionStatus(): boolean {
-    return this.isConnected && mongoose.connection.readyState === 1;
+    return this.isConnected && mongoose.connection.readyState === mongoose.ConnectionStates.connected;
   }
 
-  async getStorageStats(): Promise<{
-    dataSize: number;
-    storageSize: number;
-    indexSize: number;
-    totalSize: number;
-    dataSizeMB: number;
-    storageSizeMB: number;
-    totalSizeMB: number;
-  }> {
+  async getStorageStats(): Promise<StorageStats> {
     if (!this.isConnected) {
       throw new Error('Database not connected');
     }
 
-    const stats = await mongoose.connection.db.stats();
+    const stats = await mongoose.connection.db.stats() as MongoDBStats;
     
     return {
       dataSize: stats.dataSize,

@@ -120,7 +120,7 @@ setlistSchema.index({ tags: 1, 'metadata.isPublic': 1 }); // Search by tags
 setlistSchema.index({ 'metadata.lastUsedAt': -1 }); // Recently used setlists
 
 // Generate share token method
-setlistSchema.methods.generateShareToken = function(): string {
+setlistSchema.methods.generateShareToken = function(this: ISetlistDocument): string {
   const token = Math.random().toString(36).substring(2, 15) + 
                 Math.random().toString(36).substring(2, 15);
   this.metadata.shareToken = token;
@@ -128,11 +128,11 @@ setlistSchema.methods.generateShareToken = function(): string {
 };
 
 // Calculate estimated duration method
-setlistSchema.methods.calculateEstimatedDuration = async function(): Promise<number> {
+setlistSchema.methods.calculateEstimatedDuration = async function(this: ISetlistDocument): Promise<number> {
   const Song = mongoose.model('Song');
-  const songIds = this.songs.map(item => item.songId);
+  const songIds = this.songs.map((item: ISetlistItem) => item.songId);
   
-  const songs = await Song.find({ _id: { $in: songIds } }).select('tempo');
+  const songs = await Song.find({ _id: { $in: songIds } }).select('tempo') as Array<{ tempo?: number }>;
   
   // Rough estimation: assume 3-4 minutes per song, adjust based on tempo
   let totalMinutes = 0;
@@ -155,11 +155,12 @@ setlistSchema.methods.calculateEstimatedDuration = async function(): Promise<num
 
 // Add song method
 setlistSchema.methods.addSong = function(
+  this: ISetlistDocument,
   songId: Types.ObjectId, 
   arrangementId?: Types.ObjectId, 
   options: { transpose?: number; notes?: string } = {}
 ): void {
-  const maxOrder = this.songs.length > 0 ? Math.max(...this.songs.map(s => s.order)) : -1;
+  const maxOrder = this.songs.length > 0 ? Math.max(...this.songs.map((s: ISetlistItem) => s.order)) : -1;
   
   this.songs.push({
     songId,

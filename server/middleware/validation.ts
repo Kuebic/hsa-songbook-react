@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult, ValidationChain } from 'express-validator';
 import { z, ZodSchema, ZodError } from 'zod';
+import { TypedValidationError, FormattedValidationError, ValidationErrorResponse, ZodValidationError } from '../types/validation';
 
 /**
  * Middleware to handle express-validator results
@@ -9,15 +10,19 @@ export const handleValidationErrors = (req: Request, res: Response, next: NextFu
   const errors = validationResult(req);
   
   if (!errors.isEmpty()) {
-    return res.status(400).json({
+    const response: ValidationErrorResponse = {
       error: 'Validation failed',
       code: 'VALIDATION_ERROR',
-      details: errors.array().map(err => ({
-        field: err.type === 'field' ? err.path : undefined,
-        message: err.msg,
-        value: err.type === 'field' ? err.value : undefined
-      }))
-    });
+      details: errors.array().map((err): FormattedValidationError => {
+        const typedErr = err as TypedValidationError;
+        return {
+          field: typedErr.type === 'field' ? typedErr.path : undefined,
+          message: typedErr.msg,
+          value: typedErr.type === 'field' ? typedErr.value : undefined
+        };
+      })
+    };
+    return res.status(400).json(response);
   }
   
   next();
@@ -39,24 +44,25 @@ export const validate = (validations: ValidationChain[]) => {
 export const validateSchema = (schema: ZodSchema, source: 'body' | 'query' | 'params' = 'body') => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
-      const data = req[source];
+      const data = req[source] as unknown;
       const validatedData = schema.parse(data);
       
       // Replace the request data with validated data
-      req[source] = validatedData;
+      (req as Record<string, unknown>)[source] = validatedData;
       
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        return res.status(400).json({
+        const response: ValidationErrorResponse = {
           error: 'Validation failed',
           code: 'VALIDATION_ERROR',
-          details: error.errors?.map(err => ({
-            field: err.path?.join('.') || 'unknown',
+          details: error.errors.map((err): ZodValidationError => ({
+            field: (err.path as (string | number)[]).join('.') || 'unknown',
             message: err.message,
             code: err.code
-          })) || []
-        });
+          }))
+        };
+        return res.status(400).json(response);
       }
       
       next(error);

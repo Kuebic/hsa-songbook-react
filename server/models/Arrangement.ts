@@ -175,22 +175,23 @@ arrangementSchema.methods.setChordData = function(chordData: string): void {
 };
 
 // Instance method to calculate document size
-arrangementSchema.methods.calculateDocumentSize = function(): number {
+arrangementSchema.methods.calculateDocumentSize = function(this: IArrangementDocument): number {
   const doc = this.toObject();
   const jsonString = JSON.stringify(doc);
   return Buffer.byteLength(jsonString, 'utf8');
 };
 
 // Pre-save middleware for chord data compression
-arrangementSchema.pre('save', async function() {
+arrangementSchema.pre('save', async function(this: IArrangementDocument) {
   // Handle direct chord data assignment
-  const directChordData = this.get('_directChordData');
+  const directChordData = this.get('_directChordData') as string | undefined;
   if (directChordData && typeof directChordData === 'string') {
     try {
       this.chordData = await compress(Buffer.from(directChordData, 'utf8'));
       this.set('_directChordData', undefined);
     } catch (error) {
-      throw new Error(`Failed to compress chord data: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to compress chord data: ${errorMessage}`);
     }
   }
   
