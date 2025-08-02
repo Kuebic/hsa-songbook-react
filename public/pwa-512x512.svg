@@ -1,6 +1,6 @@
 
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 192">
-  <rect width="192" height="192" fill="#1d4ed8" rx="24"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#1d4ed8" rx="24"/>
   <g fill="white">
     <!-- Music note -->
     <circle cx="60" cy="120" r="12"/>
