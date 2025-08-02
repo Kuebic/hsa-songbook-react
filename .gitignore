@@ -30,6 +30,15 @@ dist-ssr
 *.sln
 *.sw?
 
+# Development build artifacts
+dev-dist/
+*.map
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+
 # Ignore Claude instructions
 .claude
 CLAUDE.md
