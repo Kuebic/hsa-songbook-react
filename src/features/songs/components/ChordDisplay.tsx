@@ -126,7 +126,7 @@ export const ChordDisplay = React.memo<ChordDisplayProps>(({
   // Get theme styles
   const themeStyles = THEME_STYLES[theme];
 
-  // Process HTML to add custom styling
+  // Process HTML to add custom styling and improve chord positioning
   const processedHtml = useMemo(() => {
     if (!formattedHtml) return '';
 
@@ -136,24 +136,41 @@ export const ChordDisplay = React.memo<ChordDisplayProps>(({
     processed = processed.replace(/<h1 class="title">[^<]*<\/h1>/g, '');
     processed = processed.replace(/<h2 class="subtitle">[^<]*<\/h2>/g, '');
 
-    // Add chord styling classes
+    // Add chord styling classes with improved positioning
     if (showChords) {
       processed = processed.replace(
         /<div class="chord">([^<]+)<\/div>/g,
         `<div class="chord ${themeStyles.chord}">$1</div>`
       );
-    } else {
-      // Hide chords by removing chord divs
+      // Handle empty chord slots (for proper alignment)
       processed = processed.replace(
-        /<div class="chord">([^<]+)<\/div>/g,
-        ''
+        /<div class="chord"><\/div>/g,
+        `<div class="chord chord-empty"></div>`
+      );
+    } else {
+      // Hide chords by removing chord divs but preserve layout
+      processed = processed.replace(
+        /<div class="chord">([^<]*)<\/div>/g,
+        `<div class="chord chord-hidden"></div>`
       );
     }
 
-    // Add line styling
+    // Add enhanced row styling with flexbox layout for proper alignment
     processed = processed.replace(
       /<div class="row">([^<]*(?:<[^>]*>[^<]*)*?)<\/div>/g,
-      `<div class="row ${themeStyles.line}">$1</div>`
+      `<div class="row chord-row ${themeStyles.line}">$1</div>`
+    );
+
+    // Add column styling for precise chord-lyrics alignment
+    processed = processed.replace(
+      /<div class="column">([^<]*(?:<[^>]*>[^<]*)*?)<\/div>/g,
+      `<div class="column chord-column">$1</div>`
+    );
+
+    // Add lyrics styling
+    processed = processed.replace(
+      /<div class="lyrics">([^<]*)<\/div>/g,
+      `<div class="lyrics chord-lyrics">$1</div>`
     );
 
     // Add section styling based on ChordSheetJS structure
@@ -252,6 +269,55 @@ export const ChordDisplay = React.memo<ChordDisplayProps>(({
           {song.capo && <span>Capo: {song.capo}</span>}
         </div>
       )}
+
+      {/* CSS for chord positioning */}
+      <style>{`
+        .chord-sheet-content .chord-row {
+          display: flex;
+          align-items: flex-end;
+          min-height: 2.5em;
+          margin-bottom: 0.25rem;
+        }
+        
+        .chord-sheet-content .chord-column {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          margin-right: 0.125rem;
+          position: relative;
+        }
+        
+        .chord-sheet-content .chord {
+          line-height: 1;
+          margin-bottom: 0.125rem;
+          white-space: nowrap;
+          min-height: 1.2em;
+        }
+        
+        .chord-sheet-content .chord-empty {
+          visibility: hidden;
+        }
+        
+        .chord-sheet-content .chord-hidden {
+          display: none;
+        }
+        
+        .chord-sheet-content .chord-lyrics {
+          line-height: 1.4;
+          white-space: pre;
+        }
+        
+        /* Ensure proper spacing and alignment */
+        .chord-sheet-content .chord-column:last-child {
+          margin-right: 0;
+        }
+        
+        /* Handle empty lyrics (for chords at word end) */
+        .chord-sheet-content .chord-lyrics:empty::after {
+          content: ' ';
+          white-space: pre;
+        }
+      `}</style>
 
       {/* Song content */}
       <div 

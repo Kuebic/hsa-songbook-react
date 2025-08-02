@@ -195,9 +195,18 @@ describe('ChordDisplay', () => {
     it('hides chords when showChords is false', () => {
       const { container } = render(<ChordDisplay content={simpleChordPro} showChords={false} />);
       
-      // Chords should not be visible
+      // Chord elements should be hidden but still exist for layout
       const chordElements = container.querySelectorAll('.chord');
-      expect(chordElements).toHaveLength(0);
+      expect(chordElements.length).toBeGreaterThan(0);
+      
+      // But they should all have the chord-hidden class
+      const hiddenChords = container.querySelectorAll('.chord-hidden');
+      expect(hiddenChords.length).toBe(chordElements.length);
+      
+      // And should not be visible (display: none via CSS)
+      hiddenChords.forEach(chord => {
+        expect(chord.className).toContain('chord-hidden');
+      });
     });
   });
 
