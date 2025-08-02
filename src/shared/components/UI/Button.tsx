@@ -4,7 +4,7 @@ import { cn } from '../../utils/cn'
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode
   variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'outline'
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'xs' | 'sm' | 'md' | 'lg'
   loading?: boolean
 }
 
@@ -13,10 +13,11 @@ const buttonVariants = {
   secondary: 'bg-blue-500 hover:bg-blue-400 text-white',
   success: 'bg-green-600 hover:bg-green-700 text-white',
   danger: 'bg-red-600 hover:bg-red-700 text-white',
-  outline: 'border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white',
+  outline: 'border border-gray-300 hover:bg-gray-50 text-gray-700',
 }
 
 const buttonSizes = {
+  xs: 'px-2 py-1 text-xs',
   sm: 'px-4 py-2 text-sm',
   md: 'px-6 py-3 text-base',
   lg: 'px-8 py-4 text-lg',

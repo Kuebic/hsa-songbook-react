@@ -11,7 +11,7 @@ import type {
   ValidationWarning, 
   UseChordValidationResult 
 } from '../types/chord.types';
-import { VALIDATION_DEBOUNCE_DELAY, CHORDPRO_DIRECTIVES } from '../types/chord.types';
+import { CHORDPRO_DIRECTIVES } from '../types/chord.types';
 import { isValidChord } from '../utils/chordHelpers';
 
 /**
@@ -38,11 +38,9 @@ import { isValidChord } from '../utils/chordHelpers';
  * }
  * ```
  */
-export function useChordValidation(
-  _debounceDelay: number = VALIDATION_DEBOUNCE_DELAY
-): UseChordValidationResult {
-  const [validation, _setValidation] = useState<ValidationResult | null>(null);
-  const [isValidating, _setIsValidating] = useState(false);
+export function useChordValidation(): UseChordValidationResult {
+  const [validation] = useState<ValidationResult | null>(null);
+  const [isValidating] = useState(false);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const validationCacheRef = useRef<Map<string, ValidationResult>>(new Map());
 
@@ -65,7 +63,7 @@ export function useChordValidation(
       const normalizedDirective = directive.toLowerCase().trim();
       
       // Check if directive is known
-      if (!CHORDPRO_DIRECTIVES.includes(normalizedDirective as any)) {
+      if (!(CHORDPRO_DIRECTIVES as readonly string[]).includes(normalizedDirective)) {
         errors.push({
           line: lineNumber,
           column: line.indexOf(match) + 1,
@@ -237,7 +235,7 @@ export function useChordValidation(
       // ChordSheetJS parsing failed
       let errorMessage = 'Invalid ChordPro syntax';
       let line = 1;
-      let column = 1;
+      const column = 1;
       
       if (error instanceof Error) {
         errorMessage = error.message;

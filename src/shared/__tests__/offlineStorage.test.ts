@@ -10,18 +10,19 @@ import type {
   UserPreferences, 
   ExportData,
   StorageQueryOptions,
-  CleanupConfig
+  CleanupConfig,
+  StorageMetadata
 } from '../types/storage.types';
 
 // Mock IndexedDB with extended functionality
 const createMockDB = () => {
-  const stores = new Map();
-  const indexes = new Map();
+  const stores = new Map<string, Map<string, StorageMetadata>>();
+  const indexes = new Map<string, Map<string, unknown>>();
   
   return {
-    put: vi.fn((storeName: string, data: any) => {
+    put: vi.fn((storeName: string, data: StorageMetadata) => {
       if (!stores.has(storeName)) stores.set(storeName, new Map());
-      stores.get(storeName).set(data.id, { ...data, updatedAt: Date.now() });
+      stores.get(storeName)!.set(data.id, { ...data, updatedAt: Date.now() });
       return Promise.resolve(data.id);
     }),
     get: vi.fn((storeName: string, id: string) => {
@@ -85,7 +86,7 @@ describe('OfflineStorage', () => {
     vi.clearAllMocks();
     mockDB = createMockDB();
     const { openDB } = await import('idb');
-    vi.mocked(openDB).mockResolvedValue(mockDB as any);
+    vi.mocked(openDB).mockResolvedValue(mockDB as unknown as IDBDatabase);
     offlineStorage = new OfflineStorage();
     await offlineStorage.initialize();
   });
@@ -183,8 +184,9 @@ describe('OfflineStorage', () => {
       const result = await offlineStorage.getSetlists(queryOptions);
       
       expect(result.success).toBe(true);
+      expect(result.data).toBeDefined();
       expect(result.data).toHaveLength(1);
-      expect(result.data?.[0].name).toBe('Evening Service');
+      expect(result.data![0].name).toBe('Evening Service');
     });
 
     it('should update existing setlist', async () => {
@@ -199,8 +201,9 @@ describe('OfflineStorage', () => {
       const result = await offlineStorage.updateSetlist(updatedSetlist.id, updatedSetlist);
       
       expect(result.success).toBe(true);
-      expect(result.data?.name).toBe('Updated Sunday Service');
-      expect(result.data?.songs).toHaveLength(3);
+      expect(result.data).toBeDefined();
+      expect(result.data!.name).toBe('Updated Sunday Service');
+      expect(result.data!.songs).toHaveLength(3);
     });
 
     it('should delete setlist', async () => {
@@ -266,8 +269,9 @@ describe('OfflineStorage', () => {
       const result = await offlineStorage.getSongs(queryOptions);
       
       expect(result.success).toBe(true);
+      expect(result.data).toBeDefined();
       expect(result.data).toHaveLength(1);
-      expect(result.data?.[0].title).toBe('Amazing Grace');
+      expect(result.data![0].title).toBe('Amazing Grace');
     });
 
     it('should update access tracking', async () => {
@@ -276,8 +280,9 @@ describe('OfflineStorage', () => {
       const result = await offlineStorage.trackSongAccess(mockSong.id);
       
       expect(result.success).toBe(true);
-      expect(result.data?.accessCount).toBe(mockSong.accessCount + 1);
-      expect(result.data?.lastAccessedAt).toBeGreaterThan(mockSong.lastAccessedAt);
+      expect(result.data).toBeDefined();
+      expect(result.data!.accessCount).toBe(mockSong.accessCount + 1);
+      expect(result.data!.lastAccessedAt).toBeGreaterThan(mockSong.lastAccessedAt);
     });
   });
 
@@ -314,8 +319,9 @@ describe('OfflineStorage', () => {
       const result = await offlineStorage.savePreferences(mockPreferences);
       
       expect(result.success).toBe(true);
-      expect(result.data?.theme).toBe('dark');
-      expect(result.data?.userId).toBe('user-123');
+      expect(result.data).toBeDefined();
+      expect(result.data!.theme).toBe('dark');
+      expect(result.data!.userId).toBe('user-123');
     });
 
     it('should get user preferences by userId', async () => {
@@ -324,8 +330,9 @@ describe('OfflineStorage', () => {
       const result = await offlineStorage.getPreferences('user-123');
       
       expect(result.success).toBe(true);
-      expect(result.data?.theme).toBe('dark');
-      expect(result.data?.maxCacheSize).toBe(100);
+      expect(result.data).toBeDefined();
+      expect(result.data!.theme).toBe('dark');
+      expect(result.data!.maxCacheSize).toBe(100);
     });
 
     it('should update specific preference values', async () => {
@@ -337,9 +344,10 @@ describe('OfflineStorage', () => {
       });
       
       expect(result.success).toBe(true);
-      expect(result.data?.theme).toBe('light');
-      expect(result.data?.fontSize).toBe('large');
-      expect(result.data?.autoSync).toBe(true); // Should preserve other values
+      expect(result.data).toBeDefined();
+      expect(result.data!.theme).toBe('light');
+      expect(result.data!.fontSize).toBe('large');
+      expect(result.data!.autoSync).toBe(true); // Should preserve other values
     });
   });
 
@@ -362,9 +370,10 @@ describe('OfflineStorage', () => {
       const result = await offlineStorage.getStorageStats();
       
       expect(result.success).toBe(true);
-      expect(result.data?.totalSongs).toBe(1);
-      expect(result.data?.totalSetlists).toBe(1);
-      expect(result.data?.songsSize).toBeGreaterThan(0);
+      expect(result.data).toBeDefined();
+      expect(result.data!.totalSongs).toBe(1);
+      expect(result.data!.totalSetlists).toBe(1);
+      expect(result.data!.songsSize).toBeGreaterThan(0);
     });
 
     it('should check storage quota', async () => {
@@ -382,8 +391,9 @@ describe('OfflineStorage', () => {
       const result = await offlineStorage.checkStorageQuota();
       
       expect(result.success).toBe(true);
-      expect(result.data?.percentage).toBe(85);
-      expect(result.data?.warning).toBe(true);
+      expect(result.data).toBeDefined();
+      expect(result.data!.percentage).toBe(85);
+      expect(result.data!.warning).toBe(true);
     });
   });
 
@@ -462,9 +472,10 @@ describe('OfflineStorage', () => {
       const result = await offlineStorage.importData(exportData);
       
       expect(result.success).toBe(true);
-      expect(result.data?.setlistsImported).toBe(1);
-      expect(result.data?.preferencesImported).toBe(1);
-      expect(result.data?.errors).toHaveLength(0);
+      expect(result.data).toBeDefined();
+      expect(result.data!.setlistsImported).toBe(1);
+      expect(result.data!.preferencesImported).toBe(1);
+      expect(result.data!.errors).toHaveLength(0);
     });
 
     it('should handle import conflicts', async () => {
@@ -492,8 +503,9 @@ describe('OfflineStorage', () => {
       const result = await offlineStorage.importData(exportData, { resolveConflicts: 'overwrite' });
       
       expect(result.success).toBe(true);
-      expect(result.data?.conflicts).toHaveLength(1);
-      expect(result.data?.conflicts?.[0].resolution).toBe('overwrite');
+      expect(result.data).toBeDefined();
+      expect(result.data!.conflicts).toHaveLength(1);
+      expect(result.data!.conflicts[0].resolution).toBe('overwrite');
     });
   });
 
@@ -529,7 +541,8 @@ describe('OfflineStorage', () => {
       const result = await offlineStorage.cleanup(cleanupConfig);
       
       expect(result.success).toBe(true);
-      expect(result.data?.deletedSongs).toBeGreaterThan(0);
+      expect(result.data).toBeDefined();
+      expect(result.data!.deletedSongs).toBeGreaterThan(0);
     });
 
     it('should respect favorites during cleanup', async () => {
@@ -567,7 +580,8 @@ describe('OfflineStorage', () => {
       // Verify favorite song was not deleted
       const songResult = await offlineStorage.getSong(favoriteSong.id);
       expect(songResult.success).toBe(true);
-      expect(songResult.data?.isFavorite).toBe(true);
+      expect(songResult.data).toBeDefined();
+      expect(songResult.data!.isFavorite).toBe(true);
     });
   });
 

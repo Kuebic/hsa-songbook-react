@@ -135,16 +135,47 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    testTimeout: 30000,
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        singleThread: true,
+      },
+    },
+    // Vitest workspace configuration
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    include: [
-      'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
-      'server/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'
-    ],
-    testTimeout: 30000,
-    environmentMatchGlobs: [
-      ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', 'jsdom'],
-      ['server/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', 'node']
-    ],
+    include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', 'server/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/**',
+        'dist/**',
+        '**/*.config.{js,ts}',
+        '**/*.test.{js,ts,jsx,tsx}',
+        '**/*.spec.{js,ts,jsx,tsx}',
+        '**/test/**',
+        '**/tests/**',
+        '**/__tests__/**',
+        '**/*.d.ts',
+        '**/coverage/**',
+        '**/build/**',
+        'server/test/**',
+        'src/test/**'
+      ],
+      include: [
+        'src/**/*.{js,ts,jsx,tsx}',
+        'server/**/*.{js,ts}'
+      ],
+      thresholds: {
+        global: {
+          branches: 70,
+          functions: 70,
+          lines: 70,
+          statements: 70
+        }
+      }
+    }
   },
 })

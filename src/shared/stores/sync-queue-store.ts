@@ -6,12 +6,19 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { openDB, type IDBPDatabase } from 'idb';
+import { errorReporting } from '../services/errorReporting';
+
+// Type-safe data based on resource type
+export type SyncOperationData = 
+  | { resource: 'song'; data: Record<string, unknown> }
+  | { resource: 'setlist'; data: Record<string, unknown> }
+  | { resource: 'arrangement'; data: Record<string, unknown> };
 
 export interface SyncOperation {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
   resource: 'song' | 'setlist' | 'arrangement';
-  data: any;
+  data: Record<string, unknown>;
   timestamp: number;
   retryCount: number;
   maxRetries: number;
@@ -130,7 +137,20 @@ export const useSyncQueueStore = create<SyncQueueState>()(
       }));
       
       // Persist to IndexedDB
-      persistOperation(operation).catch(console.error);
+      persistOperation(operation).catch((error) => {
+        // Use centralized error reporting instead of console.error
+        errorReporting.reportSyncError(
+          'Failed to persist sync operation',
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            operation: 'persist_operation',
+            operationId: operation.id,
+            operationType: operation.type,
+            resource: operation.resource,
+            store: 'sync-queue-store',
+          }
+        );
+      });
     },
     
     removeOperation: (id) => {
@@ -154,7 +174,18 @@ export const useSyncQueueStore = create<SyncQueueState>()(
       });
       
       // Remove from IndexedDB
-      removePersistedOperation(id).catch(console.error);
+      removePersistedOperation(id).catch((error) => {
+        // Use centralized error reporting instead of console.error
+        errorReporting.reportSyncError(
+          'Failed to remove persisted sync operation',
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            operation: 'remove_persisted_operation',
+            operationId: id,
+            store: 'sync-queue-store',
+          }
+        );
+      });
     },
     
     updateOperationStatus: (id, status, error) => {
@@ -201,7 +232,18 @@ export const useSyncQueueStore = create<SyncQueueState>()(
       // Update in IndexedDB
       const operation = get().operations.find(op => op.id === id);
       if (operation) {
-        persistOperation(operation).catch(console.error);
+        persistOperation(operation).catch((error) => {
+          errorReporting.reportSyncError(
+            'Failed to persist operation status update',
+            error instanceof Error ? error : new Error(String(error)),
+            {
+              operation: 'persist_status_update',
+              operationId: id,
+              status,
+              store: 'sync-queue-store',
+            }
+          );
+        });
       }
     },
     
@@ -226,7 +268,18 @@ export const useSyncQueueStore = create<SyncQueueState>()(
       // Update in IndexedDB
       const operation = get().operations.find(op => op.id === id);
       if (operation) {
-        persistOperation(operation).catch(console.error);
+        persistOperation(operation).catch((error) => {
+          errorReporting.reportSyncError(
+            'Failed to persist operation retry update',
+            error instanceof Error ? error : new Error(String(error)),
+            {
+              operation: 'persist_retry_update',
+              operationId: id,
+              retryCount: operation.retryCount,
+              store: 'sync-queue-store',
+            }
+          );
+        });
       }
     },
     
@@ -238,7 +291,17 @@ export const useSyncQueueStore = create<SyncQueueState>()(
         
         // Remove from IndexedDB
         completedIds.forEach(id => {
-          removePersistedOperation(id).catch(console.error);
+          removePersistedOperation(id).catch((error) => {
+            errorReporting.reportSyncError(
+              'Failed to remove completed operation',
+              error instanceof Error ? error : new Error(String(error)),
+              {
+                operation: 'remove_completed_operation',
+                operationId: id,
+                store: 'sync-queue-store',
+              }
+            );
+          });
         });
         
         return {
@@ -254,7 +317,17 @@ export const useSyncQueueStore = create<SyncQueueState>()(
       
       // Clear IndexedDB
       operations.forEach(op => {
-        removePersistedOperation(op.id).catch(console.error);
+        removePersistedOperation(op.id).catch((error) => {
+          errorReporting.reportSyncError(
+            'Failed to remove operation during clear all',
+            error instanceof Error ? error : new Error(String(error)),
+            {
+              operation: 'clear_all_operations',
+              operationId: op.id,
+              store: 'sync-queue-store',
+            }
+          );
+        });
       });
       
       set({
@@ -313,5 +386,14 @@ if (typeof window !== 'undefined') {
         totalFailed: failed,
       });
     }
-  }).catch(console.error);
+  }).catch((error) => {
+    errorReporting.reportSyncError(
+      'Failed to initialize sync queue database',
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        operation: 'initialize_db',
+        store: 'sync-queue-store',
+      }
+    );
+  });
 }

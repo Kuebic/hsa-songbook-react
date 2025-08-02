@@ -5,9 +5,16 @@
 
 import { useState } from 'react';
 import { useStorageStats, useDataPortability } from '../../hooks/useOfflineStorage';
-import { type CleanupConfig } from '../../types/storage.types';
-import { Button } from './Button';
-import { Card } from './Card';
+import type { CleanupConfig } from '../../types/storage.types';
+import { 
+  StatusCard,
+  StorageIcon,
+  StatusHeading,
+  StatusDescription,
+  StatusCaption,
+  StatusActions,
+  useToastHelpers
+} from './index';
 
 interface StorageQuotaWarningProps {
   userId: string;
@@ -26,9 +33,9 @@ export function StorageQuotaWarning({
 }: StorageQuotaWarningProps) {
   const { stats, quota, loading, isQuotaWarning, isQuotaCritical, performCleanup } = useStorageStats();
   const { downloadExport } = useDataPortability(userId);
+  const { showSuccess, showError } = useToastHelpers();
   const [isExpanded, setIsExpanded] = useState(showDetails);
   const [isCleaningUp, setIsCleaningUp] = useState(false);
-  const [cleanupResult, setCleanupResult] = useState<string | null>(null);
 
   // Don't show if quota is fine and autoHide is enabled
   if (autoHide && !isQuotaWarning && !isQuotaCritical) {
@@ -47,8 +54,8 @@ export function StorageQuotaWarning({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const getWarningLevel = () => {
-    if (isQuotaCritical) return 'critical';
+  const getStorageVariant = (): 'error' | 'warning' | 'info' => {
+    if (isQuotaCritical) return 'error';
     if (isQuotaWarning) return 'warning';
     return 'info';
   };
@@ -63,41 +70,8 @@ export function StorageQuotaWarning({
     return `Storage usage: ${quota.percentage}% of available space.`;
   };
 
-  const getWarningColors = () => {
-    const level = getWarningLevel();
-    switch (level) {
-      case 'critical':
-        return {
-          bg: 'bg-red-50',
-          border: 'border-red-200',
-          text: 'text-red-800',
-          button: 'bg-red-600 hover:bg-red-700',
-          icon: '🚨',
-        };
-      case 'warning':
-        return {
-          bg: 'bg-orange-50',
-          border: 'border-orange-200',
-          text: 'text-orange-800',
-          button: 'bg-orange-600 hover:bg-orange-700',
-          icon: '⚠️',
-        };
-      default:
-        return {
-          bg: 'bg-blue-50',
-          border: 'border-blue-200',
-          text: 'text-blue-800',
-          button: 'bg-blue-600 hover:bg-blue-700',
-          icon: '💾',
-        };
-    }
-  };
-
-  const colors = getWarningColors();
-
   const handleCleanup = async () => {
     setIsCleaningUp(true);
-    setCleanupResult(null);
 
     try {
       const cleanupConfig: CleanupConfig = {
@@ -115,14 +89,15 @@ export function StorageQuotaWarning({
       
       if (result.success) {
         const { deletedSongs, deletedSetlists } = result.data!;
-        setCleanupResult(
-          `Cleanup completed! Removed ${deletedSongs} songs and ${deletedSetlists} setlists.`
+        showSuccess(
+          'Cleanup Completed',
+          `Removed ${deletedSongs} songs and ${deletedSetlists} setlists.`
         );
       } else {
-        setCleanupResult(`Cleanup failed: ${result.error}`);
+        showError('Cleanup Failed', result.error);
       }
     } catch (error) {
-      setCleanupResult(`Cleanup error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showError('Cleanup Error', error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setIsCleaningUp(false);
     }
@@ -131,182 +106,210 @@ export function StorageQuotaWarning({
   const handleExportData = async () => {
     const success = await downloadExport();
     if (success) {
-      alert('Data export completed! Your data has been downloaded.');
+      showSuccess('Export Completed', 'Your data has been downloaded.');
+    } else {
+      showError('Export Failed', 'Unable to download your data.');
     }
   };
 
+  const handleRequestPersistence = async () => {
+    if ('storage' in navigator && 'persist' in navigator.storage) {
+      try {
+        const granted = await navigator.storage.persist();
+        if (granted) {
+          showSuccess(
+            'Storage Persistence Granted',
+            'Your data will be protected from automatic cleanup.'
+          );
+        } else {
+          showError(
+            'Storage Persistence Denied',
+            'Data may be cleared when storage is low.'
+          );
+        }
+      } catch (error) {
+        showError('Storage Persistence Error', 'Unable to request storage persistence.');
+      }
+    } else {
+      showError('Not Supported', 'Storage persistence not supported in this browser.');
+    }
+  };
+
+  const variant = getStorageVariant();
+
   return (
-    <Card className={`${colors.bg} ${colors.border} ${colors.text} ${className}`}>
-      <div className="p-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <span className="text-lg">{colors.icon}</span>
-            <h3 className="font-semibold">Storage Management</h3>
-          </div>
-          <div className="flex items-center space-x-2">
-            {!showDetails && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="text-sm underline hover:no-underline"
-              >
-                {isExpanded ? 'Less info' : 'More info'}
-              </button>
-            )}
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="text-lg hover:opacity-70"
-                aria-label="Close"
-              >
-                ×
-              </button>
-            )}
-          </div>
+    <StatusCard 
+      variant={variant} 
+      size="lg" 
+      padding="md"
+      className={className}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-2">
+          <StorageIcon variant={variant} size="md" />
+          <StatusHeading colorVariant={variant}>
+            Storage Management
+          </StatusHeading>
         </div>
-
-        {/* Main message */}
-        <p className="mt-2 text-sm">{getWarningMessage()}</p>
-
-        {/* Progress bar */}
-        <div className="mt-3">
-          <div className="flex justify-between text-xs mb-1">
-            <span>Used: {formatBytes(quota.used)}</span>
-            <span>Total: {formatBytes(quota.total)}</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full transition-all duration-300 ${
-                isQuotaCritical 
-                  ? 'bg-red-500' 
-                  : isQuotaWarning 
-                    ? 'bg-orange-500' 
-                    : 'bg-blue-500'
-              }`}
-              style={{ width: `${Math.min(quota.percentage, 100)}%` }}
-            />
-          </div>
-          <div className="text-xs text-center mt-1">
-            {quota.percentage}% used
-          </div>
+        <div className="flex items-center space-x-2">
+          {!showDetails && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-sm underline hover:no-underline"
+            >
+              {isExpanded ? 'Less info' : 'More info'}
+            </button>
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="text-lg hover:opacity-70"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          )}
         </div>
-
-        {/* Expanded details */}
-        {(isExpanded || showDetails) && (
-          <div className="mt-4 space-y-4">
-            {/* Storage breakdown */}
-            <div>
-              <h4 className="font-medium text-sm mb-2">Storage Breakdown</h4>
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <span>Songs ({stats.totalSongs} items):</span>
-                  <span>{formatBytes(stats.songsSize)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Setlists ({stats.totalSetlists} items):</span>
-                  <span>{formatBytes(stats.setlistsSize)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Preferences:</span>
-                  <span>{formatBytes(stats.preferencesSize)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Sync queue:</span>
-                  <span>{formatBytes(stats.syncQueueSize)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Cleanup result */}
-            {cleanupResult && (
-              <div className={`p-2 rounded text-xs ${
-                cleanupResult.includes('failed') || cleanupResult.includes('error')
-                  ? 'bg-red-100 text-red-700'
-                  : 'bg-green-100 text-green-700'
-              }`}>
-                {cleanupResult}
-              </div>
-            )}
-
-            {/* Action buttons */}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={handleCleanup}
-                disabled={isCleaningUp}
-                className={`text-white text-xs px-3 py-1 ${colors.button} disabled:opacity-50`}
-              >
-                {isCleaningUp ? 'Cleaning...' : 'Clean Up Old Data'}
-              </Button>
-              
-              <Button
-                onClick={handleExportData}
-                className="bg-gray-600 hover:bg-gray-700 text-white text-xs px-3 py-1"
-              >
-                Export Data
-              </Button>
-
-              {/* Manual storage management link */}
-              <button
-                onClick={() => {
-                  if ('storage' in navigator && 'persist' in navigator.storage) {
-                    navigator.storage.persist().then(granted => {
-                      alert(granted 
-                        ? 'Storage persistence granted! Your data will be protected from automatic cleanup.' 
-                        : 'Storage persistence not granted. Data may be cleared when storage is low.'
-                      );
-                    });
-                  } else {
-                    alert('Storage persistence not supported in this browser.');
-                  }
-                }}
-                className="text-xs underline hover:no-underline"
-              >
-                Request Storage Persistence
-              </button>
-            </div>
-
-            {/* Tips */}
-            <div className="text-xs">
-              <h4 className="font-medium mb-1">Tips to free up space:</h4>
-              <ul className="list-disc list-inside space-y-1 opacity-80">
-                <li>Remove unused songs and setlists</li>
-                <li>Export important data before cleanup</li>
-                <li>Unfavorite old songs to allow cleanup</li>
-                <li>Clear browser cache if storage is critical</li>
-              </ul>
-            </div>
-          </div>
-        )}
       </div>
-    </Card>
+
+      {/* Main message */}
+      <StatusDescription colorVariant="neutral" className="mb-3">
+        {getWarningMessage()}
+      </StatusDescription>
+
+      {/* Progress bar */}
+      <div className="mb-4">
+        <div className="flex justify-between mb-1">
+          <StatusCaption colorVariant="neutral" className="text-xs">
+            Used: {formatBytes(quota.used)}
+          </StatusCaption>
+          <StatusCaption colorVariant="neutral" className="text-xs">
+            Total: {formatBytes(quota.total)}
+          </StatusCaption>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div
+            className={`h-2 rounded-full transition-all duration-300 ${
+              isQuotaCritical 
+                ? 'bg-red-500' 
+                : isQuotaWarning 
+                  ? 'bg-orange-500' 
+                  : 'bg-blue-500'
+            }`}
+            style={{ width: `${Math.min(quota.percentage, 100)}%` }}
+          />
+        </div>
+        <StatusCaption colorVariant="neutral" className="text-xs text-center mt-1">
+          {quota.percentage}% used
+        </StatusCaption>
+      </div>
+
+      {/* Expanded details */}
+      {(isExpanded || showDetails) && (
+        <div className="space-y-4">
+          {/* Storage breakdown */}
+          <div>
+            <StatusHeading colorVariant="neutral" className="text-sm mb-2">
+              Storage Breakdown
+            </StatusHeading>
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  Songs ({stats.totalSongs} items):
+                </StatusCaption>
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  {formatBytes(stats.songsSize)}
+                </StatusCaption>
+              </div>
+              <div className="flex justify-between">
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  Setlists ({stats.totalSetlists} items):
+                </StatusCaption>
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  {formatBytes(stats.setlistsSize)}
+                </StatusCaption>
+              </div>
+              <div className="flex justify-between">
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  Preferences:
+                </StatusCaption>
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  {formatBytes(stats.preferencesSize)}
+                </StatusCaption>
+              </div>
+              <div className="flex justify-between">
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  Sync queue:
+                </StatusCaption>
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  {formatBytes(stats.syncQueueSize)}
+                </StatusCaption>
+              </div>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <StatusActions>
+            <StatusActions.Custom
+              onClick={handleCleanup}
+              disabled={isCleaningUp}
+              variant="primary"
+              size="sm"
+            >
+              {isCleaningUp ? 'Cleaning...' : 'Clean Up Old Data'}
+            </StatusActions.Custom>
+            
+            <StatusActions.Custom
+              onClick={handleExportData}
+              variant="secondary"
+              size="sm"
+            >
+              Export Data
+            </StatusActions.Custom>
+
+            <StatusActions.Custom
+              onClick={handleRequestPersistence}
+              variant="outline"
+              size="sm"
+            >
+              Request Storage Persistence
+            </StatusActions.Custom>
+          </StatusActions>
+
+          {/* Tips */}
+          <div>
+            <StatusHeading colorVariant="neutral" className="text-xs mb-1">
+              Tips to free up space:
+            </StatusHeading>
+            <ul className="list-disc list-inside space-y-1">
+              <li>
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  Remove unused songs and setlists
+                </StatusCaption>
+              </li>
+              <li>
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  Export important data before cleanup
+                </StatusCaption>
+              </li>
+              <li>
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  Unfavorite old songs to allow cleanup
+                </StatusCaption>
+              </li>
+              <li>
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  Clear browser cache if storage is critical
+                </StatusCaption>
+              </li>
+            </ul>
+          </div>
+        </div>
+      )}
+    </StatusCard>
   );
 }
 
-/**
- * Hook to automatically show storage warnings
- */
-export function useStorageQuotaWarning(userId: string) {
-  const { isQuotaWarning, isQuotaCritical } = useStorageStats();
-  const [dismissed, setDismissed] = useState(false);
-
-  const shouldShow = (isQuotaWarning || isQuotaCritical) && !dismissed;
-  
-  const dismiss = () => setDismissed(true);
-  
-  const reset = () => setDismissed(false);
-
-  return {
-    shouldShow,
-    isWarning: isQuotaWarning,
-    isCritical: isQuotaCritical,
-    dismiss,
-    reset,
-    component: shouldShow ? (
-      <StorageQuotaWarning 
-        userId={userId} 
-        autoHide={false} 
-        onClose={dismiss}
-      />
-    ) : null,
-  };
-}
+// Hook moved to separate file to fix Fast Refresh issues
+// Import from: import { useStorageQuotaWarning } from '../../hooks/useStorageQuotaWarning';

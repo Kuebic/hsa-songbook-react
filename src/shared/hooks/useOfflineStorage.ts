@@ -257,7 +257,7 @@ export function useSetlists(userId?: string, options?: StorageQueryOptions) {
     } finally {
       setLoading(false);
     }
-  }, [storage.isReady, userId, options]);
+  }, [storage, userId, options]);
 
   useEffect(() => {
     loadSetlists();
@@ -327,7 +327,7 @@ export function useSongs(options?: StorageQueryOptions) {
     } finally {
       setLoading(false);
     }
-  }, [storage.isReady, options]);
+  }, [storage, options]);
 
   useEffect(() => {
     loadSongs();
@@ -343,7 +343,7 @@ export function useSongs(options?: StorageQueryOptions) {
 
   const trackAccess = useCallback(async (id: string) => {
     const result = await storage.trackSongAccess(id);
-    if (result.success) {
+    if (result.success && result.data) {
       // Update the local song in state
       setSongs(prev => prev.map(song => 
         song.id === id ? result.data! : song
@@ -396,7 +396,7 @@ export function useUserPreferences(userId: string) {
     } finally {
       setLoading(false);
     }
-  }, [storage.isReady, userId]);
+  }, [storage, userId]);
 
   useEffect(() => {
     loadPreferences();
@@ -507,7 +507,7 @@ export function useStorageStats() {
     } finally {
       setLoading(false);
     }
-  }, [storage.isReady, offlineStore]);
+  }, [storage, offlineStore]);
 
   useEffect(() => {
     loadStats();
@@ -568,7 +568,7 @@ export function useDataPortability(userId: string) {
     } finally {
       setLoading(false);
     }
-  }, [storage.isReady, userId]);
+  }, [storage, userId]);
 
   const importData = useCallback(async (
     data: ExportData, 
@@ -594,7 +594,7 @@ export function useDataPortability(userId: string) {
     } finally {
       setLoading(false);
     }
-  }, [storage.isReady]);
+  }, [storage]);
 
   const downloadExport = useCallback(async (filename?: string) => {
     const data = await exportData();
@@ -657,5 +657,5 @@ export function useStorageEvents(eventType: StorageEventType, callback: StorageE
       isSubscribed = false;
       cleanupListener();
     };
-  }, [storage.isReady, eventType, callback]);
+  }, [storage, eventType, callback]);
 }

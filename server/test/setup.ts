@@ -16,10 +16,13 @@ const clerkMocks = createClerkMocks()
 // Mock Clerk Express middleware
 vi.mock('@clerk/express', () => clerkMocks)
 
-// Disable rate limiting for tests
-vi.mock('express-rate-limit', () => ({
-  default: () => (_req: Express.Request, _res: Express.Response, next: Express.NextFunction) => next(),
-}))
+// Disable rate limiting for tests - must be hoisted
+vi.mock('express-rate-limit', () => {
+  return {
+    default: () => (_req: Express.Request, _res: Express.Response, next: Express.NextFunction) => next(),
+    __esModule: true,
+  }
+})
 
 // Export clerk mocks for use in tests
 export { clerkMocks }

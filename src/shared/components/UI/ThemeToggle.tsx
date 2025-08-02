@@ -1,158 +1,130 @@
 /**
  * @file ThemeToggle.tsx
- * @description Theme toggle component for switching between light and dark modes
+ * @description Theme toggle component with sun/moon icons for switching between light and dark modes
  */
 
-import { useEffect, useState } from 'react';
-import { Button } from './Button';
+import React from 'react';
+import { useTheme } from '../../contexts/ThemeContext';
+import { cn } from '../../utils/cn';
 
 interface ThemeToggleProps {
+  /** Custom CSS classes */
   className?: string;
+  /** Size of the toggle button */
+  size?: 'sm' | 'md' | 'lg';
+  /** Show label text */
+  showLabel?: boolean;
 }
 
-export function ThemeToggle({ className = '' }: ThemeToggleProps) {
-  const [isDark, setIsDark] = useState(false);
+const sizeClasses = {
+  sm: 'w-8 h-8',
+  md: 'w-10 h-10',
+  lg: 'w-12 h-12'
+};
 
-  // Initialize theme from localStorage or system preference
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    const shouldUseDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
-    setIsDark(shouldUseDark);
-    
-    // Apply theme to document
-    if (shouldUseDark) {
-      document.documentElement.classList.add('dark');
+const iconSizeClasses = {
+  sm: 'w-4 h-4',
+  md: 'w-5 h-5',
+  lg: 'w-6 h-6'
+};
+
+export function ThemeToggle({ 
+  className, 
+  size = 'md',
+  showLabel = false 
+}: ThemeToggleProps) {
+  const { theme, resolvedTheme, setTheme } = useTheme();
+
+  const handleClick = () => {
+    // Cycle through themes: light -> dark -> system -> light
+    if (theme === 'light') {
+      setTheme('dark');
+    } else if (theme === 'dark') {
+      setTheme('system');
     } else {
-      document.documentElement.classList.remove('dark');
+      setTheme('light');
     }
-  }, []);
+  };
 
-  // Listen for system theme changes
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e: MediaQueryListEvent) => {
-      if (!localStorage.getItem('theme')) {
-        setIsDark(e.matches);
-        if (e.matches) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      }
-    };
-
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
-
-  const toggleTheme = () => {
-    const newTheme = isDark ? 'light' : 'dark';
-    
-    setIsDark(!isDark);
-    localStorage.setItem('theme', newTheme);
-    
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+  const getLabel = () => {
+    if (theme === 'system') {
+      return `System (${resolvedTheme})`;
     }
+    return theme.charAt(0).toUpperCase() + theme.slice(1);
   };
 
   return (
-    <Button
-      variant="secondary"
-      size="sm"
-      onClick={toggleTheme}
-      className={`p-2 ${className}`}
-      title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-      aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
-    >
-      {isDark ? (
-        // Sun icon for switching to light mode
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-          />
-        </svg>
-      ) : (
-        // Moon icon for switching to dark mode
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-          />
-        </svg>
+    <button
+      onClick={handleClick}
+      className={cn(
+        'relative inline-flex items-center justify-center',
+        'rounded-lg transition-all duration-200',
+        'hover:bg-gray-100 dark:hover:bg-gray-800',
+        'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+        'dark:focus:ring-offset-gray-900',
+        sizeClasses[size],
+        className
       )}
-    </Button>
+      aria-label={`Switch to ${theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light'} theme`}
+      title={`Current: ${getLabel()}`}
+    >
+      {/* Sun icon - visible in light mode */}
+      <svg
+        className={cn(
+          'absolute transition-all duration-300',
+          iconSizeClasses[size],
+          resolvedTheme === 'light' 
+            ? 'rotate-0 scale-100 opacity-100' 
+            : 'rotate-90 scale-0 opacity-0',
+          'text-amber-500'
+        )}
+        fill="currentColor"
+        viewBox="0 0 20 20"
+        aria-hidden="true"
+      >
+        <path
+          fillRule="evenodd"
+          d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+          clipRule="evenodd"
+        />
+      </svg>
+
+      {/* Moon icon - visible in dark mode */}
+      <svg
+        className={cn(
+          'absolute transition-all duration-300',
+          iconSizeClasses[size],
+          resolvedTheme === 'dark' 
+            ? 'rotate-0 scale-100 opacity-100' 
+            : '-rotate-90 scale-0 opacity-0',
+          'text-blue-300'
+        )}
+        fill="currentColor"
+        viewBox="0 0 20 20"
+        aria-hidden="true"
+      >
+        <path
+          fillRule="evenodd"
+          d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"
+          clipRule="evenodd"
+        />
+      </svg>
+
+      {/* System indicator - small dot when in system mode */}
+      {theme === 'system' && (
+        <div className={cn(
+          'absolute bottom-0 right-0 w-2 h-2 rounded-full',
+          'bg-green-500 dark:bg-green-400',
+          'border-2 border-white dark:border-gray-900'
+        )} />
+      )}
+
+      {/* Label text */}
+      {showLabel && (
+        <span className="ml-2 text-sm font-medium">
+          {getLabel()}
+        </span>
+      )}
+    </button>
   );
-}
-
-/**
- * Hook for managing theme state
- */
-export function useTheme() {
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    const shouldUseDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
-    setIsDark(shouldUseDark);
-  }, []);
-
-  const toggleTheme = () => {
-    const newTheme = isDark ? 'light' : 'dark';
-    
-    setIsDark(!isDark);
-    localStorage.setItem('theme', newTheme);
-    
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
-
-  const setTheme = (theme: 'light' | 'dark' | 'system') => {
-    if (theme === 'system') {
-      localStorage.removeItem('theme');
-      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDark(systemPrefersDark);
-      if (systemPrefersDark) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    } else {
-      localStorage.setItem('theme', theme);
-      setIsDark(theme === 'dark');
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
-  };
-
-  return { isDark, toggleTheme, setTheme };
 }

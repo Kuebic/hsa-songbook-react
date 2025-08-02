@@ -1,10 +1,8 @@
 /**
  * @file offlineStorage.ts
- * @description Core IndexedDB storage service for offline data management
+ * @description Core storage orchestrator that coordinates all storage operations
  */
 
-import { openDB } from 'idb';
-import type { IDBPDatabase } from 'idb';
 import type { 
   CachedSong, 
   CachedSetlist, 
@@ -17,16 +15,30 @@ import type {
   StorageOperationResult,
   StorageQueryOptions,
   CleanupConfig,
-  StorageEvent,
   StorageEventType,
-  StorageEventCallback,
-  StorageMetadata
+  StorageEventCallback
 } from '../types/storage.types';
 
+import { StorageDatabase } from './storage/StorageDatabase';
+import { StorageOperations } from './storage/StorageOperations';
+import { StorageQuota as StorageQuotaService } from './storage/StorageQuota';
+import { StorageEvents } from './storage/StorageEvents';
+import { errorReporting } from './errorReporting';
+
+/**
+ * Core storage orchestrator that coordinates all storage operations
+ * 
+ * This class acts as a facade that delegates operations to specialized service classes:
+ * - StorageDatabase: Low-level IndexedDB operations
+ * - StorageOperations: High-level CRUD operations
+ * - StorageQuotaService: Storage quota and cleanup management
+ * - StorageEvents: Event handling system
+ */
 export class OfflineStorage {
-  private db: IDBPDatabase | null = null;
-  private isInit = false;
-  private eventListeners = new Map<StorageEventType, StorageEventCallback<any>[]>();
+  private database: StorageDatabase;
+  private operations: StorageOperations;
+  private quotaService: StorageQuotaService;
+  private events: StorageEvents;
   
   private readonly config: StorageConfig = {
     dbName: 'hsa-songbook-offline',
@@ -74,30 +86,62 @@ export class OfflineStorage {
   };
 
   constructor() {
+    // Initialize service classes
+    this.events = new StorageEvents({ debug: process.env.NODE_ENV === 'development' });
+    this.database = new StorageDatabase(this.config);
+    // Create type-safe emit wrapper
+    const emitWrapper = <T = unknown>(event: string, data: T) => {
+      this.events.emit(event as StorageEventType, data);
+    };
+    
+    this.operations = new StorageOperations(this.database, this.config, emitWrapper);
+    this.quotaService = new StorageQuotaService(this.database, this.config, emitWrapper);
+
     // Auto-initialize on construction
-    this.initialize().catch(console.error);
+    this.initialize().catch(this.handleError.bind(this));
   }
+
+  /**
+   * Private error handler for internal operations
+   */
+  private handleError(error: unknown): void {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown storage error';
+    
+    // Report error using centralized service instead of console.error
+    errorReporting.reportStorageError(
+      `[OfflineStorage] ${errorMessage}`,
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        service: 'OfflineStorage',
+        timestamp: Date.now(),
+      }
+    );
+    
+    // Emit error event for listeners
+    this.events.emit('storage_error', { error: errorMessage, timestamp: Date.now() });
+  }
+
+  // ===============================
+  // INITIALIZATION & CONFIG
+  // ===============================
 
   /**
    * Initialize the IndexedDB database
    */
   async initialize(): Promise<void> {
-    if (this.isInit) return;
-
     try {
-      this.db = await openDB(this.config.dbName, this.config.dbVersion, {
-        upgrade: (db) => {
-          this.setupDatabase(db);
-        },
-      });
-      
-      this.isInit = true;
-      
-      // Initialize storage stats if not exists
-      await this.initializeStorageStats();
-      
+      await this.database.initialize();
+      await this.quotaService.initializeStorageStats();
     } catch (error) {
-      console.error('Failed to initialize offline storage:', error);
+      // Use centralized error reporting instead of console.error
+      errorReporting.reportStorageError(
+        'Failed to initialize offline storage',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          operation: 'initialize',
+          service: 'OfflineStorage',
+        }
+      );
       throw error;
     }
   }
@@ -106,7 +150,7 @@ export class OfflineStorage {
    * Check if storage is initialized
    */
   isInitialized(): boolean {
-    return this.isInit && this.db !== null;
+    return this.database.isInitialized();
   }
 
   /**
@@ -120,11 +164,8 @@ export class OfflineStorage {
    * Close the database connection
    */
   async close(): Promise<void> {
-    if (this.db) {
-      this.db.close();
-      this.db = null;
-      this.isInit = false;
-    }
+    await this.database.close();
+    this.events.destroy();
   }
 
   // ===============================
@@ -135,138 +176,47 @@ export class OfflineStorage {
    * Save a setlist to local storage
    */
   async saveSetlist(setlist: CachedSetlist): Promise<StorageOperationResult<CachedSetlist>> {
-    if (!this.isInit || !this.db) {
-      return this.createErrorResult('Storage not initialized');
+    const result = await this.operations.saveSetlist(setlist);
+    if (result.success) {
+      await this.quotaService.updateStorageStats();
     }
-
-    try {
-      const now = Date.now();
-      const updatedSetlist: CachedSetlist = {
-        ...setlist,
-        updatedAt: now,
-        // Ensure all required fields are present
-        createdAt: setlist.createdAt || now,
-        syncStatus: setlist.syncStatus || 'pending',
-        version: setlist.version || 1,
-      };
-
-      await this.db.put(this.config.stores.setlists, updatedSetlist);
-      
-      // Update storage stats
-      await this.updateStorageStats();
-      
-      // Emit event
-      this.emit('setlist_added', updatedSetlist);
-      
-      return this.createSuccessResult(updatedSetlist, 'create');
-    } catch (error) {
-      return this.handleStorageError(error, 'create');
-    }
+    return result;
   }
 
   /**
    * Get a setlist by ID
    */
   async getSetlist(id: string): Promise<StorageOperationResult<CachedSetlist>> {
-    if (!this.isInit || !this.db) {
-      return this.createErrorResult('Storage not initialized');
-    }
-
-    try {
-      const setlist = await this.db.get(this.config.stores.setlists, id);
-      
-      if (!setlist) {
-        return this.createErrorResult(`Setlist with id '${id}' not found`);
-      }
-
-      return this.createSuccessResult(setlist, 'read');
-    } catch (error) {
-      return this.handleStorageError(error, 'read');
-    }
+    return this.operations.getSetlist(id);
   }
 
   /**
    * Get setlists with query options
    */
   async getSetlists(options: StorageQueryOptions = {}): Promise<StorageOperationResult<CachedSetlist[]>> {
-    if (!this.isInit || !this.db) {
-      return this.createErrorResult('Storage not initialized');
-    }
-
-    try {
-      let setlists = await this.db.getAll(this.config.stores.setlists);
-      
-      // Apply filters
-      setlists = this.applyQueryFilters(setlists, options);
-      
-      return this.createSuccessResult(setlists, 'list', setlists.length);
-    } catch (error) {
-      return this.handleStorageError(error, 'list');
-    }
+    return this.operations.getSetlists(options);
   }
 
   /**
    * Update a setlist
    */
   async updateSetlist(id: string, updates: Partial<CachedSetlist>): Promise<StorageOperationResult<CachedSetlist>> {
-    if (!this.isInit || !this.db) {
-      return this.createErrorResult('Storage not initialized');
+    const result = await this.operations.updateSetlist(id, updates);
+    if (result.success) {
+      await this.quotaService.updateStorageStats();
     }
-
-    try {
-      const existing = await this.db.get(this.config.stores.setlists, id);
-      if (!existing) {
-        return this.createErrorResult(`Setlist with id '${id}' not found`);
-      }
-
-      const updated: CachedSetlist = {
-        ...existing,
-        ...updates,
-        id, // Ensure ID cannot be changed
-        updatedAt: Date.now(),
-        version: existing.version + 1,
-      };
-
-      await this.db.put(this.config.stores.setlists, updated);
-      
-      // Update storage stats
-      await this.updateStorageStats();
-      
-      // Emit event
-      this.emit('setlist_updated', updated);
-      
-      return this.createSuccessResult(updated, 'update');
-    } catch (error) {
-      return this.handleStorageError(error, 'update');
-    }
+    return result;
   }
 
   /**
    * Delete a setlist
    */
   async deleteSetlist(id: string): Promise<StorageOperationResult<boolean>> {
-    if (!this.isInit || !this.db) {
-      return this.createErrorResult('Storage not initialized');
+    const result = await this.operations.deleteSetlist(id);
+    if (result.success) {
+      await this.quotaService.updateStorageStats();
     }
-
-    try {
-      const existing = await this.db.get(this.config.stores.setlists, id);
-      if (!existing) {
-        return this.createErrorResult(`Setlist with id '${id}' not found`);
-      }
-
-      await this.db.delete(this.config.stores.setlists, id);
-      
-      // Update storage stats
-      await this.updateStorageStats();
-      
-      // Emit event
-      this.emit('setlist_deleted', { id });
-      
-      return this.createSuccessResult(true, 'delete');
-    } catch (error) {
-      return this.handleStorageError(error, 'delete');
-    }
+    return result;
   }
 
   // ===============================
@@ -277,105 +227,32 @@ export class OfflineStorage {
    * Save a song to local storage
    */
   async saveSong(song: CachedSong): Promise<StorageOperationResult<CachedSong>> {
-    if (!this.isInit || !this.db) {
-      return this.createErrorResult('Storage not initialized');
+    const result = await this.operations.saveSong(song);
+    if (result.success) {
+      await this.quotaService.updateStorageStats();
     }
-
-    try {
-      const now = Date.now();
-      const updatedSong: CachedSong = {
-        ...song,
-        updatedAt: now,
-        createdAt: song.createdAt || now,
-        syncStatus: song.syncStatus || 'pending',
-        version: song.version || 1,
-        lastAccessedAt: song.lastAccessedAt || now,
-        accessCount: song.accessCount || 0,
-        isFavorite: song.isFavorite || false,
-      };
-
-      await this.db.put(this.config.stores.songs, updatedSong);
-      
-      // Update storage stats
-      await this.updateStorageStats();
-      
-      // Emit event
-      this.emit('song_added', updatedSong);
-      
-      return this.createSuccessResult(updatedSong, 'create');
-    } catch (error) {
-      return this.handleStorageError(error, 'create');
-    }
+    return result;
   }
 
   /**
    * Get a song by ID
    */
   async getSong(id: string): Promise<StorageOperationResult<CachedSong>> {
-    if (!this.isInit || !this.db) {
-      return this.createErrorResult('Storage not initialized');
-    }
-
-    try {
-      const song = await this.db.get(this.config.stores.songs, id);
-      
-      if (!song) {
-        return this.createErrorResult(`Song with id '${id}' not found`);
-      }
-
-      return this.createSuccessResult(song, 'read');
-    } catch (error) {
-      return this.handleStorageError(error, 'read');
-    }
+    return this.operations.getSong(id);
   }
 
   /**
    * Get songs with query options
    */
   async getSongs(options: StorageQueryOptions = {}): Promise<StorageOperationResult<CachedSong[]>> {
-    if (!this.isInit || !this.db) {
-      return this.createErrorResult('Storage not initialized');
-    }
-
-    try {
-      let songs = await this.db.getAll(this.config.stores.songs);
-      
-      // Apply filters
-      songs = this.applyQueryFilters(songs, options);
-      
-      return this.createSuccessResult(songs, 'list', songs.length);
-    } catch (error) {
-      return this.handleStorageError(error, 'list');
-    }
+    return this.operations.getSongs(options);
   }
 
   /**
    * Track song access for statistics
    */
   async trackSongAccess(id: string): Promise<StorageOperationResult<CachedSong>> {
-    if (!this.isInit || !this.db) {
-      return this.createErrorResult('Storage not initialized');
-    }
-
-    try {
-      const song = await this.db.get(this.config.stores.songs, id);
-      if (!song) {
-        return this.createErrorResult(`Song with id '${id}' not found`);
-      }
-
-      const updated: CachedSong = {
-        ...song,
-        accessCount: song.accessCount + 1,
-        lastAccessedAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-
-      await this.db.put(this.config.stores.songs, updated);
-      
-      return this.createSuccessResult(updated, 'update');
-    } catch (error) {
-      return this.handleStorageError(error, 'update');
-    }
+    return this.operations.trackSongAccess(id);
   }
 
   // ===============================
@@ -386,86 +263,35 @@ export class OfflineStorage {
    * Save user preferences
    */
   async savePreferences(preferences: UserPreferences): Promise<StorageOperationResult<UserPreferences>> {
-    if (!this.isInit || !this.db) {
-      return this.createErrorResult('Storage not initialized');
-    }
-
-    try {
-      const now = Date.now();
-      const updatedPreferences: UserPreferences = {
-        ...preferences,
-        updatedAt: now,
-        createdAt: preferences.createdAt || now,
-        syncStatus: preferences.syncStatus || 'pending',
-        version: preferences.version || 1,
-      };
-
-      await this.db.put(this.config.stores.preferences, updatedPreferences);
-      
-      // Emit event
-      this.emit('preferences_updated', updatedPreferences);
-      
-      return this.createSuccessResult(updatedPreferences, 'create');
-    } catch (error) {
-      return this.handleStorageError(error, 'create');
-    }
+    return this.operations.savePreferences(preferences);
   }
 
   /**
    * Get user preferences by user ID
    */
   async getPreferences(userId: string): Promise<StorageOperationResult<UserPreferences>> {
-    if (!this.isInit || !this.db) {
-      return this.createErrorResult('Storage not initialized');
-    }
-
-    try {
-      const tx = this.db.transaction(this.config.stores.preferences, 'readonly');
-      const index = tx.store.index('by_user_id');
-      const preferences = await index.get(userId);
-      
-      if (!preferences) {
-        return this.createErrorResult(`Preferences for user '${userId}' not found`);
-      }
-
-      return this.createSuccessResult(preferences, 'read');
-    } catch (error) {
-      return this.handleStorageError(error, 'read');
-    }
+    return this.operations.getPreferences(userId);
   }
 
   /**
    * Update user preferences
    */
   async updatePreferences(userId: string, updates: Partial<UserPreferences>): Promise<StorageOperationResult<UserPreferences>> {
-    if (!this.isInit || !this.db) {
-      return this.createErrorResult('Storage not initialized');
+    const existingResult = await this.operations.getPreferences(userId);
+    if (!existingResult.success) {
+      return existingResult;
     }
 
-    try {
-      const existingResult = await this.getPreferences(userId);
-      if (!existingResult.success) {
-        return existingResult;
-      }
+    const existing = existingResult.data!;
+    const updated: UserPreferences = {
+      ...existing,
+      ...updates,
+      userId, // Ensure user ID cannot be changed
+      updatedAt: Date.now(),
+      version: existing.version + 1,
+    };
 
-      const existing = existingResult.data!;
-      const updated: UserPreferences = {
-        ...existing,
-        ...updates,
-        userId, // Ensure user ID cannot be changed
-        updatedAt: Date.now(),
-        version: existing.version + 1,
-      };
-
-      await this.db.put(this.config.stores.preferences, updated);
-      
-      // Emit event
-      this.emit('preferences_updated', updated);
-      
-      return this.createSuccessResult(updated, 'update');
-    } catch (error) {
-      return this.handleStorageError(error, 'update');
-    }
+    return this.operations.savePreferences(updated);
   }
 
   // ===============================
@@ -476,96 +302,27 @@ export class OfflineStorage {
    * Get storage statistics
    */
   async getStorageStats(): Promise<StorageOperationResult<StorageStats>> {
-    if (!this.isInit || !this.db) {
-      return this.createErrorResult('Storage not initialized');
-    }
-
-    try {
-      // Get counts
-      const [songCount, setlistCount, preferencesCount, syncCount] = await Promise.all([
-        this.db.count(this.config.stores.songs),
-        this.db.count(this.config.stores.setlists),
-        this.db.count(this.config.stores.preferences),
-        this.db.count(this.config.stores.syncQueue),
-      ]);
-
-      // Calculate sizes (rough estimation)
-      const [songs, setlists] = await Promise.all([
-        this.db.getAll(this.config.stores.songs),
-        this.db.getAll(this.config.stores.setlists),
-      ]);
-
-      const songsSize = songs.reduce((total, song) => total + song.fileSize, 0);
-      const setlistsSize = setlists.length * 1024; // Rough estimate
-      const preferencesSize = preferencesCount * 2048; // Rough estimate
-      const syncQueueSize = syncCount * 512; // Rough estimate
-
-      // Get storage quota
-      const quotaResult = await this.checkStorageQuota();
-      const quota = quotaResult.success ? quotaResult.data! : {
-        total: 0,
-        used: 0,
-        available: 0,
-        percentage: 0,
-        warning: false,
-        lastChecked: Date.now(),
-      };
-
-      const stats: StorageStats = {
-        totalSongs: songCount,
-        totalSetlists: setlistCount,
-        totalPreferences: preferencesCount,
-        totalSyncOperations: syncCount,
-        songsSize,
-        setlistsSize,
-        preferencesSize,
-        syncQueueSize,
-        cacheHitRate: 0, // Would be calculated based on actual usage
-        averageAccessTime: 0, // Would be measured in real implementation
-        lastCleanup: Date.now(),
-        quota,
-      };
-
-      return this.createSuccessResult(stats, 'read');
-    } catch (error) {
-      return this.handleStorageError(error, 'read');
-    }
+    return this.quotaService.getStorageStats();
   }
 
   /**
    * Check storage quota
    */
   async checkStorageQuota(): Promise<StorageOperationResult<StorageQuota>> {
-    try {
-      if (!navigator.storage?.estimate) {
-        return this.createErrorResult('Storage estimation not supported');
-      }
+    return this.quotaService.checkStorageQuota();
+  }
 
-      const estimate = await navigator.storage.estimate();
-      const total = estimate.quota || 0;
-      const used = estimate.usage || 0;
-      const available = total - used;
-      const percentage = total > 0 ? Math.round((used / total) * 100) : 0;
-      const warning = percentage >= 80;
-
-      const quota: StorageQuota = {
-        total,
-        used,
-        available,
-        percentage,
-        warning,
-        lastChecked: Date.now(),
-      };
-
-      // Emit warning event if needed
-      if (warning) {
-        this.emit('quota_warning', quota);
-      }
-
-      return this.createSuccessResult(quota, 'read');
-    } catch (error) {
-      return this.handleStorageError(error, 'read');
-    }
+  /**
+   * Get storage size breakdown
+   */
+  async getStorageSizeBreakdown(): Promise<StorageOperationResult<{
+    songs: number;
+    setlists: number;
+    preferences: number;
+    syncQueue: number;
+    total: number;
+  }>> {
+    return this.quotaService.getStorageSizeBreakdown();
   }
 
   // ===============================
@@ -576,16 +333,24 @@ export class OfflineStorage {
    * Export all data
    */
   async exportData(userId: string): Promise<StorageOperationResult<ExportData>> {
-    if (!this.isInit || !this.db) {
+    if (!this.database.isInitialized()) {
       return this.createErrorResult('Storage not initialized');
     }
 
     try {
-      const [songs, setlists, preferences] = await Promise.all([
-        this.db.getAll(this.config.stores.songs),
-        this.db.getAll(this.config.stores.setlists),
-        this.getPreferences(userId).then(result => result.success ? result.data : undefined),
+      const [songsResult, setlistsResult, preferencesResult] = await Promise.all([
+        this.operations.getSongs(),
+        this.operations.getSetlists(), 
+        this.operations.getPreferences(userId)
       ]);
+
+      if (!songsResult.success || !setlistsResult.success) {
+        return this.createErrorResult('Failed to retrieve data for export');
+      }
+
+      const songs = songsResult.data!;
+      const setlists = setlistsResult.data!;
+      const preferences = preferencesResult.success ? preferencesResult.data! : {} as UserPreferences;
 
       const exportData: ExportData = {
         version: '1.0.0',
@@ -593,9 +358,9 @@ export class OfflineStorage {
         exportedBy: userId,
         songs,
         setlists,
-        preferences: preferences || {} as UserPreferences,
-        totalItems: songs.length + setlists.length + (preferences ? 1 : 0),
-        totalSize: songs.reduce((sum, song) => sum + song.fileSize, 0),
+        preferences,
+        totalItems: songs.length + setlists.length + (preferencesResult.success ? 1 : 0),
+        totalSize: songs.reduce((sum, song) => sum + (song.fileSize || 0), 0),
         checksum: this.generateChecksum(JSON.stringify({ songs, setlists, preferences })),
       };
 
@@ -612,7 +377,7 @@ export class OfflineStorage {
     data: ExportData, 
     options: { resolveConflicts?: 'keep_existing' | 'overwrite' | 'create_new' } = {}
   ): Promise<StorageOperationResult<ImportResult>> {
-    if (!this.isInit || !this.db) {
+    if (!this.database.isInitialized()) {
       return this.createErrorResult('Storage not initialized');
     }
 
@@ -628,23 +393,16 @@ export class OfflineStorage {
     };
 
     try {
-      // Start transaction
-      const tx = this.db.transaction([
-        this.config.stores.songs,
-        this.config.stores.setlists,
-        this.config.stores.preferences,
-      ], 'readwrite');
-
       // Import songs
       for (const song of data.songs) {
         try {
-          const existing = await tx.objectStore(this.config.stores.songs).get(song.id);
+          const existingResult = await this.operations.getSong(song.id);
           
-          if (existing && existing.version >= song.version) {
+          if (existingResult.success && existingResult.data!.version >= song.version) {
             result.conflicts.push({
               type: 'song',
               id: song.id,
-              existingVersion: existing.version,
+              existingVersion: existingResult.data!.version,
               importedVersion: song.version,
               resolution: resolveConflicts,
             });
@@ -654,8 +412,10 @@ export class OfflineStorage {
             }
           }
 
-          await tx.objectStore(this.config.stores.songs).put(song);
-          result.songsImported++;
+          const saveResult = await this.operations.saveSong(song);
+          if (saveResult.success) {
+            result.songsImported++;
+          }
         } catch (error) {
           result.errors.push({
             type: 'song',
@@ -668,13 +428,13 @@ export class OfflineStorage {
       // Import setlists
       for (const setlist of data.setlists) {
         try {
-          const existing = await tx.objectStore(this.config.stores.setlists).get(setlist.id);
+          const existingResult = await this.operations.getSetlist(setlist.id);
           
-          if (existing && existing.version >= setlist.version) {
+          if (existingResult.success && existingResult.data!.version >= setlist.version) {
             result.conflicts.push({
               type: 'setlist',
               id: setlist.id,
-              existingVersion: existing.version,
+              existingVersion: existingResult.data!.version,
               importedVersion: setlist.version,
               resolution: resolveConflicts,
             });
@@ -684,8 +444,10 @@ export class OfflineStorage {
             }
           }
 
-          await tx.objectStore(this.config.stores.setlists).put(setlist);
-          result.setlistsImported++;
+          const saveResult = await this.operations.saveSetlist(setlist);
+          if (saveResult.success) {
+            result.setlistsImported++;
+          }
         } catch (error) {
           result.errors.push({
             type: 'setlist',
@@ -698,8 +460,10 @@ export class OfflineStorage {
       // Import preferences
       if (data.preferences && data.preferences.userId) {
         try {
-          await tx.objectStore(this.config.stores.preferences).put(data.preferences);
-          result.preferencesImported = 1;
+          const saveResult = await this.operations.savePreferences(data.preferences);
+          if (saveResult.success) {
+            result.preferencesImported = 1;
+          }
         } catch (error) {
           result.errors.push({
             type: 'preferences',
@@ -709,10 +473,8 @@ export class OfflineStorage {
         }
       }
 
-      await tx.done;
-
       // Update storage stats
-      await this.updateStorageStats();
+      await this.quotaService.updateStorageStats();
 
       return this.createSuccessResult(result, 'create');
     } catch (error) {
@@ -730,62 +492,7 @@ export class OfflineStorage {
    * Clean up old and unused data
    */
   async cleanup(config: CleanupConfig): Promise<StorageOperationResult<{ deletedSongs: number; deletedSetlists: number }>> {
-    if (!this.isInit || !this.db) {
-      return this.createErrorResult('Storage not initialized');
-    }
-
-    try {
-      const now = Date.now();
-      const maxAgeMs = config.maxAge * 24 * 60 * 60 * 1000;
-      const maxUnusedAgeMs = config.maxUnusedAge * 24 * 60 * 60 * 1000;
-
-      let deletedSongs = 0;
-      let deletedSetlists = 0;
-
-      // Clean up old songs
-      const songs = await this.db.getAll(this.config.stores.songs);
-      for (const song of songs) {
-        const age = now - song.createdAt;
-        const unusedAge = now - song.lastAccessedAt;
-        
-        const shouldDelete = (
-          !song.isFavorite && // Never delete favorites
-          (age > maxAgeMs || unusedAge > maxUnusedAgeMs)
-        );
-
-        if (shouldDelete) {
-          await this.db.delete(this.config.stores.songs, song.id);
-          deletedSongs++;
-        }
-      }
-
-      // Clean up old setlists
-      const setlists = await this.db.getAll(this.config.stores.setlists);
-      for (const setlist of setlists) {
-        const age = now - setlist.createdAt;
-        const unusedAge = setlist.lastUsedAt ? now - setlist.lastUsedAt : age;
-        
-        const shouldDelete = (
-          !setlist.isPublic && // Keep public setlists
-          (age > maxAgeMs || unusedAge > maxUnusedAgeMs)
-        );
-
-        if (shouldDelete) {
-          await this.db.delete(this.config.stores.setlists, setlist.id);
-          deletedSetlists++;
-        }
-      }
-
-      // Update storage stats
-      await this.updateStorageStats();
-
-      // Emit cleanup event
-      this.emit('cleanup_completed', { deletedSongs, deletedSetlists });
-
-      return this.createSuccessResult({ deletedSongs, deletedSetlists }, 'delete');
-    } catch (error) {
-      return this.handleStorageError(error, 'delete');
-    }
+    return this.quotaService.cleanup(config);
   }
 
   // ===============================
@@ -796,213 +503,33 @@ export class OfflineStorage {
    * Add event listener
    */
   on<T = unknown>(eventType: StorageEventType, callback: StorageEventCallback<T>): void {
-    if (!this.eventListeners.has(eventType)) {
-      this.eventListeners.set(eventType, []);
-    }
-    this.eventListeners.get(eventType)!.push(callback as StorageEventCallback<any>);
+    this.events.on(eventType, callback);
   }
 
   /**
    * Remove event listener
    */
   off<T = unknown>(eventType: StorageEventType, callback: StorageEventCallback<T>): void {
-    const callbacks = this.eventListeners.get(eventType);
-    if (callbacks) {
-      const index = callbacks.indexOf(callback as StorageEventCallback<any>);
-      if (index > -1) {
-        callbacks.splice(index, 1);
-      }
-    }
+    this.events.off(eventType, callback);
   }
 
   /**
-   * Emit event
+   * Add one-time event listener
    */
-  private emit<T = unknown>(eventType: StorageEventType, data: T): void {
-    const callbacks = this.eventListeners.get(eventType);
-    if (callbacks) {
-      const event: StorageEvent<T> = {
-        type: eventType,
-        data,
-        timestamp: Date.now(),
-      };
-      
-      callbacks.forEach(callback => {
-        try {
-          callback(event);
-        } catch (error) {
-          console.error('Error in storage event callback:', error);
-        }
-      });
-    }
+  once<T = unknown>(eventType: StorageEventType, callback: StorageEventCallback<T>): void {
+    this.events.once(eventType, callback);
+  }
+
+  /**
+   * Wait for a specific event
+   */
+  waitForEvent<T = unknown>(eventType: StorageEventType, timeout?: number): Promise<T> {
+    return this.events.waitForEvent(eventType, timeout);
   }
 
   // ===============================
   // PRIVATE HELPER METHODS
   // ===============================
-
-  /**
-   * Setup database schema
-   */
-  private setupDatabase(db: IDBPDatabase): void {
-    // Create object stores
-    if (!db.objectStoreNames.contains(this.config.stores.songs)) {
-      const songsStore = db.createObjectStore(this.config.stores.songs, { keyPath: 'id' });
-      this.config.indexes.songs.forEach(index => {
-        songsStore.createIndex(index.name, index.keyPath, { unique: index.unique });
-      });
-    }
-
-    if (!db.objectStoreNames.contains(this.config.stores.setlists)) {
-      const setlistsStore = db.createObjectStore(this.config.stores.setlists, { keyPath: 'id' });
-      this.config.indexes.setlists.forEach(index => {
-        setlistsStore.createIndex(index.name, index.keyPath, { unique: index.unique });
-      });
-    }
-
-    if (!db.objectStoreNames.contains(this.config.stores.preferences)) {
-      const preferencesStore = db.createObjectStore(this.config.stores.preferences, { keyPath: 'id' });
-      this.config.indexes.preferences.forEach(index => {
-        preferencesStore.createIndex(index.name, index.keyPath, { unique: index.unique });
-      });
-    }
-
-    if (!db.objectStoreNames.contains(this.config.stores.syncQueue)) {
-      const syncQueueStore = db.createObjectStore(this.config.stores.syncQueue, { keyPath: 'id' });
-      this.config.indexes.syncQueue.forEach(index => {
-        syncQueueStore.createIndex(index.name, index.keyPath, { unique: index.unique });
-      });
-    }
-
-    if (!db.objectStoreNames.contains(this.config.stores.storageStats)) {
-      db.createObjectStore(this.config.stores.storageStats, { keyPath: 'id' });
-    }
-  }
-
-  /**
-   * Initialize storage stats
-   */
-  private async initializeStorageStats(): Promise<void> {
-    if (!this.db) return;
-    
-    try {
-      const existing = await this.db.get(this.config.stores.storageStats, 'main');
-      if (!existing) {
-        const initialStats: StorageStats = {
-          totalSongs: 0,
-          totalSetlists: 0,
-          totalPreferences: 0,
-          totalSyncOperations: 0,
-          songsSize: 0,
-          setlistsSize: 0,
-          preferencesSize: 0,
-          syncQueueSize: 0,
-          cacheHitRate: 0,
-          averageAccessTime: 0,
-          lastCleanup: Date.now(),
-          quota: {
-            total: 0,
-            used: 0,
-            available: 0,
-            percentage: 0,
-            warning: false,
-            lastChecked: Date.now(),
-          },
-        };
-        
-        await this.db.put(this.config.stores.storageStats, { id: 'main', ...initialStats });
-      }
-    } catch (error) {
-      console.error('Failed to initialize storage stats:', error);
-    }
-  }
-
-  /**
-   * Update storage statistics
-   */
-  private async updateStorageStats(): Promise<void> {
-    try {
-      const statsResult = await this.getStorageStats();
-      if (statsResult.success && this.db) {
-        await this.db.put(this.config.stores.storageStats, { id: 'main', ...statsResult.data });
-      }
-    } catch (error) {
-      console.error('Failed to update storage stats:', error);
-    }
-  }
-
-  /**
-   * Apply query filters to results
-   */
-  private applyQueryFilters<T extends StorageMetadata>(items: T[], options: StorageQueryOptions): T[] {
-    let filtered = [...items];
-
-    // Apply filters
-    if (options.tags && options.tags.length > 0) {
-      filtered = filtered.filter(item => {
-        const itemTags = (item as T & { tags?: string[] }).tags || [];
-        return options.tags!.some(tag => itemTags.includes(tag));
-      });
-    }
-
-    if (options.syncStatus && options.syncStatus.length > 0) {
-      filtered = filtered.filter(item => options.syncStatus!.includes(item.syncStatus));
-    }
-
-    if (options.dateRange) {
-      const { field, start, end } = options.dateRange;
-      filtered = filtered.filter(item => {
-        const value = (item as Record<string, unknown>)[field];
-        if (!value) return false;
-        if (typeof value !== 'number') return false;
-        if (start && value < start) return false;
-        if (end && value > end) return false;
-        return true;
-      });
-    }
-
-    // Apply search
-    if (options.searchTerm && options.searchFields) {
-      const searchTerm = options.searchTerm.toLowerCase();
-      filtered = filtered.filter(item => {
-        return options.searchFields!.some(field => {
-          const value = (item as Record<string, unknown>)[field];
-          return value && value.toString().toLowerCase().includes(searchTerm);
-        });
-      });
-    }
-
-    // Apply sorting
-    if (options.sortBy) {
-      filtered.sort((a, b) => {
-        const aValue = (a as Record<string, unknown>)[options.sortBy!];
-        const bValue = (b as Record<string, unknown>)[options.sortBy!];
-        
-        let comparison = 0;
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-          comparison = aValue.localeCompare(bValue);
-        } else if (typeof aValue === 'number' && typeof bValue === 'number') {
-          comparison = aValue - bValue;
-        } else {
-          // Fallback to string comparison
-          const aStr = String(aValue);
-          const bStr = String(bValue);
-          comparison = aStr.localeCompare(bStr);
-        }
-        
-        return options.sortOrder === 'desc' ? -comparison : comparison;
-      });
-    }
-
-    // Apply pagination
-    if (options.offset || options.limit) {
-      const start = options.offset || 0;
-      const end = options.limit ? start + options.limit : undefined;
-      filtered = filtered.slice(start, end);
-    }
-
-    return filtered;
-  }
 
   /**
    * Create success result
@@ -1024,7 +551,7 @@ export class OfflineStorage {
   /**
    * Create error result
    */
-  private createErrorResult<T = never>(error: string): StorageOperationResult<T> {
+  private createErrorResult<T = unknown>(error: string): StorageOperationResult<T> {
     return {
       success: false,
       error,
@@ -1036,7 +563,7 @@ export class OfflineStorage {
   /**
    * Handle storage errors
    */
-  private handleStorageError(error: unknown, operation: StorageOperationResult['operation']): StorageOperationResult<never> {
+  private handleStorageError<T = unknown>(error: unknown, operation: StorageOperationResult['operation']): StorageOperationResult<T> {
     let errorMessage = 'Unknown storage error';
     
     if (error instanceof Error) {
@@ -1045,7 +572,7 @@ export class OfflineStorage {
       // Handle specific error types
       if (error.name === 'QuotaExceededError') {
         errorMessage = 'Storage quota exceeded. Please free up space or clear old data.';
-        this.emit('quota_critical', { error: errorMessage });
+        this.events.emit('quota_critical', { error: errorMessage });
       }
     }
 
@@ -1054,7 +581,7 @@ export class OfflineStorage {
       error: errorMessage,
       timestamp: Date.now(),
       operation,
-    } as StorageOperationResult<never>;
+    };
   }
 
   /**

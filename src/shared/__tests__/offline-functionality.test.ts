@@ -36,7 +36,11 @@ const mockNavigator = {
     register: vi.fn(),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
-    ready: Promise.resolve({}),
+    ready: Promise.resolve({
+      sync: {
+        register: vi.fn()
+      }
+    } as unknown as ServiceWorkerRegistration),
   },
 };
 
@@ -338,9 +342,6 @@ describe('Service Worker Integration', () => {
       writable: true,
     });
     
-    // Mock window.addEventListener
-    vi.spyOn(window, 'addEventListener');
-    
     // This would normally be handled by the main.tsx file
     // Just verify that the registration logic would work
     expect(mockNavigator.serviceWorker.register).toBeDefined();
@@ -393,7 +394,7 @@ describe('Background Sync', () => {
     };
     
     // Mock service worker registration with sync capability
-    mockNavigator.serviceWorker.ready = Promise.resolve(mockRegistration as any);
+    mockNavigator.serviceWorker.ready = Promise.resolve(mockRegistration as unknown as ServiceWorkerRegistration);
     
     // This would be handled by the background sync logic
     expect(mockRegistration.sync.register).toBeDefined();

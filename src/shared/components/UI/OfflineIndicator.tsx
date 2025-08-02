@@ -6,6 +6,12 @@
 import React from 'react';
 import { cn } from '../../utils/cn';
 import { useOfflineStatus } from '../../hooks/useOfflineStatus';
+import { 
+  StatusCard,
+  OfflineIcon,
+  StatusCaption,
+  StatusDescription 
+} from './index';
 
 export interface OfflineIndicatorProps {
   /** CSS class name */
@@ -40,29 +46,16 @@ export const OfflineIndicator = React.memo<OfflineIndicatorProps>(({
     return null;
   }
 
-  const getStatusColor = () => {
+  const getStatusVariant = (): 'success' | 'warning' | 'error' | 'info' => {
     switch (effectiveStatus) {
       case 'online':
-        return 'bg-green-500 text-white';
+        return 'success';
       case 'limited':
-        return 'bg-yellow-500 text-white';
+        return 'warning';
       case 'offline':
-        return 'bg-red-500 text-white';
+        return 'error';
       default:
-        return 'bg-gray-500 text-white';
-    }
-  };
-
-  const getStatusIcon = () => {
-    switch (effectiveStatus) {
-      case 'online':
-        return '🟢';
-      case 'limited':
-        return '🟡';
-      case 'offline':
-        return '🔴';
-      default:
-        return '⚪';
+        return 'info';
     }
   };
 
@@ -83,61 +76,89 @@ export const OfflineIndicator = React.memo<OfflineIndicatorProps>(({
     return `${days} days ago`;
   };
 
+  const variant = getStatusVariant();
   const positionClasses = {
     top: 'fixed top-0 left-0 right-0 z-50',
     bottom: 'fixed bottom-0 left-0 right-0 z-50',
     inline: 'relative',
   };
 
+  if (position === 'inline') {
+    return (
+      <StatusCard 
+        variant={variant} 
+        size="sm" 
+        padding="sm"
+        className={cn('transition-all duration-300 ease-in-out', className)}
+      >
+        <div className="flex items-center space-x-2">
+          <OfflineIcon variant={variant} size="sm" />
+          <StatusCaption colorVariant={variant}>{message}</StatusCaption>
+          
+          {showDetails && hasOfflineData && effectiveStatus === 'offline' && (
+            <StatusCaption colorVariant="neutral" className="text-xs">
+              ✓ Offline data available
+            </StatusCaption>
+          )}
+        </div>
+      </StatusCard>
+    );
+  }
+
   return (
     <div
       className={cn(
-        'px-4 py-2 text-sm font-medium',
-        'transition-all duration-300 ease-in-out',
-        getStatusColor(),
         positionClasses[position],
+        'transition-all duration-300 ease-in-out',
         className
       )}
       role="status"
       aria-live="polite"
     >
-      <div className="flex items-center justify-center space-x-2">
-        <span className="text-lg" aria-hidden="true">
-          {getStatusIcon()}
-        </span>
-        <span>{message}</span>
+      <StatusCard 
+        variant={variant} 
+        size="sm" 
+        padding="sm"
+        className="mx-4 my-2"
+      >
+        <div className="flex items-center justify-center space-x-2">
+          <OfflineIcon variant={variant} size="sm" />
+          <StatusCaption colorVariant={variant}>{message}</StatusCaption>
+          
+          {showDetails && (
+            <div className="hidden sm:flex items-center space-x-4 ml-4">
+              {connectionType && (
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  Connection: {connectionType.toUpperCase()}
+                </StatusCaption>
+              )}
+              
+              {effectiveStatus === 'offline' && lastOnlineTime && (
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  Last online: {formatLastOnlineTime(lastOnlineTime)}
+                </StatusCaption>
+              )}
+              
+              {effectiveStatus === 'offline' && hasOfflineData && (
+                <StatusCaption colorVariant="neutral" className="text-xs">
+                  ✓ Offline data available
+                </StatusCaption>
+              )}
+            </div>
+          )}
+        </div>
         
+        {/* Mobile details */}
         {showDetails && (
-          <div className="hidden sm:flex items-center space-x-4 ml-4 text-xs opacity-90">
-            {connectionType && (
-              <span>
-                Connection: {connectionType.toUpperCase()}
-              </span>
-            )}
-            
-            {effectiveStatus === 'offline' && lastOnlineTime && (
-              <span>
-                Last online: {formatLastOnlineTime(lastOnlineTime)}
-              </span>
-            )}
-            
+          <div className="sm:hidden mt-1 text-center">
             {effectiveStatus === 'offline' && hasOfflineData && (
-              <span>
-                ✓ Offline data available
-              </span>
+              <StatusCaption colorVariant="neutral" className="text-xs">
+                Offline content available
+              </StatusCaption>
             )}
           </div>
         )}
-      </div>
-      
-      {/* Mobile details */}
-      {showDetails && (
-        <div className="sm:hidden mt-1 text-center text-xs opacity-90">
-          {effectiveStatus === 'offline' && hasOfflineData && (
-            <div>Offline content available</div>
-          )}
-        </div>
-      )}
+      </StatusCard>
     </div>
   );
 });
@@ -153,31 +174,36 @@ export const StatusBadge = React.memo<{
 }>(({ className, showText = true }) => {
   const { effectiveStatus, message } = useOfflineStatus();
 
-  const getStatusColor = () => {
+  const getStatusVariant = (): 'success' | 'warning' | 'error' | 'info' => {
     switch (effectiveStatus) {
       case 'online':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+        return 'success';
       case 'limited':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
+        return 'warning';
       case 'offline':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+        return 'error';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+        return 'info';
     }
   };
 
+  const variant = getStatusVariant();
+
   return (
-    <span
-      className={cn(
-        'inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium',
-        getStatusColor(),
-        className
-      )}
+    <StatusCard 
+      variant={variant} 
+      size="xs" 
+      padding="xs"
+      className={cn('inline-flex items-center space-x-1 rounded-full', className)}
       title={message}
     >
       <span className="w-2 h-2 rounded-full bg-current" />
-      {showText && <span>{effectiveStatus}</span>}
-    </span>
+      {showText && (
+        <StatusCaption colorVariant={variant} className="text-xs">
+          {effectiveStatus}
+        </StatusCaption>
+      )}
+    </StatusCard>
   );
 });
 

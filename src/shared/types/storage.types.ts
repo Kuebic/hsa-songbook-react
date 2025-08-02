@@ -246,6 +246,19 @@ export interface StorageOperationResult<T = unknown> {
   affectedCount?: number;
 }
 
+// Type-safe storage operation results
+export type StorageSuccessResult<T> = StorageOperationResult<T> & {
+  success: true;
+  data: T;
+  error?: never;
+};
+
+export type StorageErrorResult = StorageOperationResult<never> & {
+  success: false;
+  data?: never;
+  error: string;
+};
+
 // Search/filter options for queries
 export interface StorageQueryOptions {
   // Filtering
@@ -294,7 +307,8 @@ export type StorageEventType =
   | 'preferences_updated'
   | 'quota_warning' | 'quota_critical'
   | 'sync_completed' | 'sync_failed'
-  | 'cleanup_completed';
+  | 'cleanup_completed'
+  | 'storage_error';
 
 export interface StorageEvent<T = unknown> {
   type: StorageEventType;
@@ -305,3 +319,30 @@ export interface StorageEvent<T = unknown> {
 
 // Storage observer callback
 export type StorageEventCallback<T = unknown> = (event: StorageEvent<T>) => void;
+
+// Utility types for generic constraints
+export type SearchableEntity = {
+  name?: string;
+  title?: string;
+  description?: string;
+  artist?: string;
+  tags?: string[];
+};
+
+export type SortableEntity = {
+  name?: string;
+  title?: string;
+  createdAt?: number;
+  updatedAt?: number;
+  lastAccessedAt?: number;
+  lastUsedAt?: number;
+};
+
+// Combined type for query filtering
+export type QueryableEntity = StorageMetadata & Partial<SearchableEntity & SortableEntity>;
+
+// Valid storage entity types
+export type ValidStorageEntity = CachedSong | CachedSetlist | UserPreferences;
+
+// Generic constraint for storage operations
+export type StorageEntityConstraint<T> = T extends ValidStorageEntity ? T : never;

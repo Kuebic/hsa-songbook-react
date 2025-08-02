@@ -3,19 +3,22 @@
  * @description ChordPro editor component with syntax highlighting and real-time validation
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { cn } from '../../../shared/utils/cn';
 import type { ChordEditorProps } from '../types/chord.types';
 import { 
   EDITOR_FONT_SIZE_LIMITS, 
-  EDITOR_HEIGHT_LIMITS
+  EDITOR_HEIGHT_LIMITS,
+  THEME_STYLES
 } from '../types/chord.types';
 import { useChordEditor } from '../hooks/useChordEditor';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { ChordEditorToolbar } from './ChordEditorToolbar';
 import { ChordEditorPreview } from './ChordEditorPreview';
-import { ChordEditorCore } from './ChordEditorCore';
-import { ChordEditorSettings } from './ChordEditorSettings';
-import { ChordEditorValidation } from './ChordEditorValidation';
+import { AceEditorConfig } from './chord-editor/AceEditorConfig';
+
+// Type imports for Ace editor
+import type { Ace } from 'ace-builds';
 
 /**
  * ChordEditor Component
@@ -51,9 +54,8 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
   onAutoSave,
   autoSaveDelay = 5000
 }) => {
-  // Local state for cursor position and settings panel
-  const [cursorPosition, setCursorPosition] = useState({ line: 0, column: 0 });
-  const [showSettings, setShowSettings] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const aceEditorRef = useRef<Ace.Editor | null>(null);
 
   // Validate and clamp props
   const validatedFontSize = useMemo(() => {
@@ -76,6 +78,7 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
   const {
     state,
     setContent,
+    setCursor,
     insertText,
     undo,
     redo,
@@ -94,8 +97,58 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
     onAutoSave
   );
 
-  // Handle toolbar actions
-  const handleToolbarAction = (action: string, _payload?: any) => {
+  // Initialize keyboard shortcuts
+  const { shortcuts } = useKeyboardShortcuts({
+    onInsertTextWithCursor: (text: string, offset: number) => {
+      if (aceEditorRef.current) {
+        aceEditorRef.current.insert(text);
+        if (offset !== 0) {
+          const pos = aceEditorRef.current.getCursorPosition();
+          aceEditorRef.current.moveCursorTo(pos.row, pos.column + offset);
+        }
+      }
+    }
+  });
+
+  /**
+   * Handle editor initialization
+   */
+  const handleEditorReady = useCallback((editor: Ace.Editor) => {
+    aceEditorRef.current = editor;
+  }, []);
+
+  /**
+   * Handle content changes from editor
+   */
+  const handleContentChange = useCallback((newContent: string) => {
+    if (newContent !== state.content) {
+      setContent(newContent);
+      onChange(newContent);
+    }
+  }, [state.content, setContent, onChange]);
+
+  /**
+   * Handle cursor position changes
+   */
+  const handleCursorChange = useCallback((position: { line: number; column: number }) => {
+    setCursor(position);
+  }, [setCursor]);
+
+  /**
+   * Update editor content when prop changes
+   */
+  useEffect(() => {
+    if (aceEditorRef.current && content !== aceEditorRef.current.getValue()) {
+      const cursorPos = aceEditorRef.current.getCursorPosition();
+      aceEditorRef.current.setValue(content, -1);
+      aceEditorRef.current.moveCursorToPosition(cursorPos);
+    }
+  }, [content]);
+
+  /**
+   * Handle toolbar actions
+   */
+  const handleToolbarAction = useCallback((action: string) => {
     switch (action) {
       case 'undo':
         undo();
@@ -115,27 +168,29 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
       case 'save':
         save();
         break;
-      case 'toggle-settings':
-        setShowSettings(!showSettings);
-        break;
       default:
         console.warn(`Unknown toolbar action: ${action}`);
     }
-  };
+  }, [undo, redo, insertText, format, save]);
 
-  // Handle validation results
-  React.useEffect(() => {
+  /**
+   * Handle validation results
+   */
+  useEffect(() => {
     if (onValidate && state.validation) {
       onValidate(state.validation);
     }
   }, [onValidate, state.validation]);
 
+  // Get theme styles for container
+  const themeStyles = THEME_STYLES[theme];
 
   return (
     <div 
       className={cn(
         'chord-editor',
-        'rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700',
+        themeStyles.container,
+        'rounded-lg overflow-hidden',
         showPreview ? 'flex flex-col' : '',
         className
       )}
@@ -154,38 +209,6 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
         />
       )}
 
-      {/* Settings Panel */}
-      {showSettings && (
-        <ChordEditorSettings
-          theme={theme}
-          onThemeChange={(_newTheme) => {
-            // Theme changes would need to be handled by parent component
-            // For now, just close settings
-            setShowSettings(false);
-          }}
-          fontSize={validatedFontSize}
-          onFontSizeChange={(size) => {
-            // Font size changes would need to be handled by parent component
-            console.log('Font size change requested:', size);
-          }}
-          height={validatedHeight}
-          onHeightChange={(h) => {
-            // Height changes would need to be handled by parent component
-            console.log('Height change requested:', h);
-          }}
-          showPreview={showPreview}
-          onShowPreviewChange={(show) => {
-            // Preview toggle would need to be handled by parent component
-            console.log('Preview toggle requested:', show);
-          }}
-          autoComplete={autoComplete}
-          onAutoCompleteChange={(enabled) => {
-            // Auto-complete toggle would need to be handled by parent component
-            console.log('Auto-complete toggle requested:', enabled);
-          }}
-        />
-      )}
-
       {/* Main content area */}
       <div className={cn('flex-1 flex', showPreview ? 'min-h-0' : '')}>
         {/* Editor container */}
@@ -195,29 +218,40 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
             minWidth: showPreview ? '50%' : '100%'
           }}
         >
-          {/* Core editor */}
-          <ChordEditorCore
-            content={content}
-            onChange={(newContent) => {
-              setContent(newContent);
-              onChange(newContent);
+          <div 
+            ref={editorRef}
+            className="chord-editor-ace flex-1"
+            style={{ 
+              width: '100%'
             }}
+            role="textbox"
+            aria-label="ChordPro Editor"
+            aria-multiline="true"
+            tabIndex={0}
+          />
+          
+          {/* Ace Editor Configuration */}
+          <AceEditorConfig
+            editorElement={editorRef.current}
             theme={theme}
             fontSize={validatedFontSize}
             readOnly={readOnly}
             autoComplete={autoComplete}
             placeholder={placeholder}
-            height={validatedHeight - (showToolbar ? 50 : 0) - (showSettings ? 100 : 0) - 30} // Account for status bar
-            onCursorChange={setCursorPosition}
+            initialContent={content}
+            keyboardShortcuts={shortcuts}
+            onEditorReady={handleEditorReady}
+            onContentChange={handleContentChange}
+            onCursorChange={handleCursorChange}
           />
 
           {/* Status bar */}
           <div className="editor-status-bar border-t border-gray-200 dark:border-gray-700 px-3 py-1 text-xs text-gray-600 dark:text-gray-400 flex justify-between">
             <span>
-              Line {cursorPosition.line + 1}, Column {cursorPosition.column + 1}
+              Line {state.cursor.line + 1}, Column {state.cursor.column + 1}
             </span>
             <span>
-              {content.length} characters
+              {state.content.length} characters
               {state.validation?.parseTime && (
                 <span className="ml-2">
                   • Validated in {state.validation.parseTime.toFixed(1)}ms
@@ -225,18 +259,12 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
               )}
             </span>
           </div>
-
-          {/* Validation display */}
-          <ChordEditorValidation
-            validation={state.validation || null}
-            cursorPosition={cursorPosition}
-          />
         </div>
 
         {/* Preview pane */}
         {showPreview && (
           <ChordEditorPreview
-            content={content}
+            content={state.content}
             theme={theme}
             validation={state.validation || undefined}
             showValidationErrors={true}

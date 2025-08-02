@@ -1,13 +1,10 @@
 import { SignedIn, SignedOut } from '@clerk/clerk-react'
 import { Card } from '../../../shared/components'
 import { ChordDisplay } from './ChordDisplay'
+import { ChordEditor } from './ChordEditor'
 import { useChordTransposition } from '../hooks/useChordTransposition'
-import { useState, lazy, Suspense } from 'react'
-
-// Lazy load the ChordEditor component for better performance
-const ChordEditor = lazy(() => import('./ChordEditor').then(module => ({ 
-  default: module.ChordEditor 
-})))
+import { useTheme } from '../../../shared/contexts/ThemeContext'
+import { useState } from 'react'
 
 const sampleSong = `{title: Amazing Grace}
 {subtitle: Traditional}
@@ -28,24 +25,25 @@ The [D]hour I [G]first believed`;
 
 export function SongsPage() {
   const { transposeLevel, transposeUp, transposeDown, reset } = useChordTransposition();
+  const { resolvedTheme } = useTheme();
   const [editorContent, setEditorContent] = useState(sampleSong);
   const [showPreview, setShowPreview] = useState(true);
 
   return (
     <div className="space-y-6">
       <Card>
-        <h1 className="text-3xl font-bold text-gray-800 mb-4">Songs</h1>
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-4">Songs</h1>
         <SignedIn>
-          <p className="text-gray-600 mb-4">Manage your songs here.</p>
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-blue-800 font-medium">🎵 ChordDisplay Component Demo</p>
-            <p className="text-blue-600 text-sm mt-2">
+          <p className="text-gray-600 dark:text-gray-400 mb-4">Manage your songs here.</p>
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <p className="text-blue-800 dark:text-blue-300 font-medium">🎵 ChordDisplay Component Demo</p>
+            <p className="text-blue-600 dark:text-blue-400 text-sm mt-2">
               Below is a working demonstration of the ChordDisplay component with transposition controls.
             </p>
           </div>
         </SignedIn>
         <SignedOut>
-          <p className="text-gray-600">Please sign in to access your songs.</p>
+          <p className="text-gray-600 dark:text-gray-400">Please sign in to access your songs.</p>
         </SignedOut>
       </Card>
 
@@ -67,34 +65,22 @@ export function SongsPage() {
             </div>
           </div>
           
-          <div className="p-4 bg-green-50 rounded-lg border border-green-200 mb-4">
-            <p className="text-green-800 font-medium">✨ ChordEditor Component Demo</p>
-            <p className="text-green-600 text-sm mt-2">
+          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 mb-4">
+            <p className="text-green-800 dark:text-green-300 font-medium">✨ ChordEditor Component Demo</p>
+            <p className="text-green-600 dark:text-green-400 text-sm mt-2">
               Edit ChordPro content below with syntax highlighting, validation, and live preview.
             </p>
           </div>
 
-          <Suspense 
-            fallback={
-              <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600 text-sm">Loading ChordEditor...</p>
-                  <p className="text-gray-500 text-xs mt-1">This may take a moment on first load</p>
-                </div>
-              </div>
-            }
-          >
-            <ChordEditor
-              content={editorContent}
-              onChange={setEditorContent}
-              showPreview={showPreview}
-              theme="light"
-              height={600}
-              autoComplete={true}
-              showToolbar={true}
-            />
-          </Suspense>
+          <ChordEditor
+            content={editorContent}
+            onChange={setEditorContent}
+            showPreview={showPreview}
+            theme={resolvedTheme}
+            height={600}
+            autoComplete={true}
+            showToolbar={true}
+          />
         </Card>
         
         <Card>
@@ -103,24 +89,24 @@ export function SongsPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => transposeDown()}
-                className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm"
+                className="px-3 py-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded text-sm transition-colors"
                 aria-label="Transpose down"
               >
                 ♭
               </button>
-              <span className="px-3 py-1 bg-gray-100 rounded text-sm min-w-[3rem] text-center">
+              <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm min-w-[3rem] text-center">
                 {transposeLevel > 0 ? `+${transposeLevel}` : transposeLevel}
               </span>
               <button
                 onClick={() => transposeUp()}
-                className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm"
+                className="px-3 py-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded text-sm transition-colors"
                 aria-label="Transpose up"
               >
                 ♯
               </button>
               <button
                 onClick={reset}
-                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm"
+                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded text-sm transition-colors"
               >
                 Reset
               </button>
@@ -130,7 +116,7 @@ export function SongsPage() {
           <ChordDisplay 
             content={editorContent}
             transpose={transposeLevel}
-            theme="light"
+            theme={resolvedTheme}
             fontSize={18}
             showChords={true}
           />
