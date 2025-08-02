@@ -402,3 +402,9 @@ export function useToastHelpers() {
       addToast(title, message, { ...options, variant: 'info' }),
   };
 }
+
+// Export aliases for backwards compatibility
+export const showError = showErrorToast;
+export const showWarning = showWarningToast;
+export const showSuccess = showSuccessToast;
+export const showInfo = showInfoToast;
