@@ -1,12 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { getAuth } from '@clerk/express';
-
-export interface AuthenticatedRequest extends Request {
-  auth?: {
-    userId: string;
-    sessionClaims?: Record<string, unknown>;
-  };
-}
+import { Role, AuthenticatedRequest, hasRolePermission } from '../types/auth';
 
 /**
  * Middleware to require authentication
@@ -24,7 +18,8 @@ export const requireAuth = (req: AuthenticatedRequest, res: Response, next: Next
 
   req.auth = {
     userId: auth.userId,
-    sessionClaims: auth.sessionClaims
+    sessionClaims: auth.sessionClaims,
+    role: (auth.sessionClaims?.metadata?.role as Role) || Role.USER
   };
 
   next();
@@ -50,7 +45,7 @@ export const optionalAuth = (req: AuthenticatedRequest, res: Response, next: Nex
 /**
  * Middleware to require specific role
  */
-export const requireRole = (role: string) => {
+export const requireRole = (requiredRole: Role) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const auth = getAuth(req);
     
@@ -61,18 +56,19 @@ export const requireRole = (role: string) => {
       });
     }
 
-    const userRole = auth.sessionClaims?.metadata?.role || 'member';
+    const userRole = (auth.sessionClaims?.metadata?.role as Role) || Role.USER;
     
-    if (userRole !== role && userRole !== 'admin') {
+    if (!hasRolePermission(userRole, requiredRole)) {
       return res.status(403).json({
-        error: `${role} role required`,
+        error: `${requiredRole} role required`,
         code: 'FORBIDDEN'
       });
     }
 
     req.auth = {
       userId: auth.userId,
-      sessionClaims: auth.sessionClaims
+      sessionClaims: auth.sessionClaims,
+      role: userRole
     };
 
     next();
@@ -82,35 +78,9 @@ export const requireRole = (role: string) => {
 /**
  * Middleware to require admin role
  */
-export const requireAdmin = requireRole('admin');
+export const requireAdmin = requireRole(Role.ADMIN);
 
 /**
  * Middleware to require leader role or higher
  */
-export const requireLeader = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  const auth = getAuth(req);
-  
-  if (!auth.userId) {
-    return res.status(401).json({
-      error: 'Authentication required',
-      code: 'UNAUTHORIZED'
-    });
-  }
-
-  const userRole = auth.sessionClaims?.metadata?.role || 'member';
-  const allowedRoles = ['leader', 'admin'];
-  
-  if (!allowedRoles.includes(userRole)) {
-    return res.status(403).json({
-      error: 'Leader role or higher required',
-      code: 'FORBIDDEN'
-    });
-  }
-
-  req.auth = {
-    userId: auth.userId,
-    sessionClaims: auth.sessionClaims
-  };
-
-  next();
-};
+export const requireLeader = requireRole(Role.LEADER);

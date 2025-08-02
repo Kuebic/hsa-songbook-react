@@ -1,10 +1,11 @@
 import mongoose, { Schema } from 'mongoose';
+import { Role } from '../types/auth';
 
 export interface IUser {
   clerkId: string; // Clerk authentication ID
   email: string;
   name: string;
-  role: 'user' | 'moderator' | 'admin';
+  role: Role;
   preferences: {
     defaultKey?: string;
     fontSize?: number;
@@ -53,8 +54,8 @@ const userSchema = new Schema<IUserDocument>({
   },
   role: {
     type: String,
-    enum: ['user', 'moderator', 'admin'],
-    default: 'user',
+    enum: Object.values(Role),
+    default: Role.USER,
     index: true
   },
   preferences: {

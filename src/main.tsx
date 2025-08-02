@@ -24,7 +24,12 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+    <ClerkProvider 
+      publishableKey={PUBLISHABLE_KEY} 
+      afterSignOutUrl="/"
+      signInFallbackRedirectUrl="/songs"
+      signUpFallbackRedirectUrl="/songs"
+    >
       <App />
     </ClerkProvider>
   </StrictMode>,
