@@ -52,7 +52,6 @@ export {
   StatusServiceWorkerActions
 } from './StatusActions'
 export {
-  StatusToast,
   ToastProvider,
   ToastContainer,
   useToast,
@@ -61,6 +60,14 @@ export {
   showWarningToast,
   showSuccessToast,
   showInfoToast
+} from './StatusToast'
+
+// Shorter aliases for convenience
+export {
+  showErrorToast as showError,
+  showWarningToast as showWarning,
+  showSuccessToast as showSuccess,
+  showInfoToast as showInfo
 } from './StatusToast'
 
 // Other components
