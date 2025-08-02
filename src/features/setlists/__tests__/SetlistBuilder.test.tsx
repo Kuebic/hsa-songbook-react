@@ -107,12 +107,10 @@ jest.mock('../stores', () => ({
   useSetlist: () => mockSetlist,
   useSetlistDragState: () => ({ isDragging: false }),
   useSetlistError: () => null,
-  useSetlistUndoRedo: () => ({
-    canUndo: false,
-    canRedo: false,
-    undo: jest.fn(),
-    redo: jest.fn()
-  }),
+  useSetlistCanUndo: () => false,
+  useSetlistCanRedo: () => false,
+  useSetlistUndo: () => jest.fn(),
+  useSetlistRedo: () => jest.fn(),
   useSetlistValidation: () => ({ isValid: true, errors: [], warnings: [] }),
   useSetlistDuplicates: () => [],
   useSetlistTimeEstimation: () => ({ totalMinutes: 25, totalSeconds: 1500, formatted: '25m', breakdown: [] })

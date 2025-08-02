@@ -88,15 +88,16 @@ export const SetlistBuilder: React.FC<SetlistBuilderProps> = ({
 
   // Set compact mode in store
   useEffect(() => {
-    setUIState({ compactView: compactMode });
-  }, [compactMode, setUIState]);
+    useSetlistStore.getState().setUIState({ compactView: compactMode });
+  }, [compactMode]);
 
   // Validation and calculations on setlist changes
   useEffect(() => {
-    validateSetlist();
-    recalculateTimeEstimation();
-    refreshDuplicateDetection();
-  }, [setlist.songs, validateSetlist, recalculateTimeEstimation, refreshDuplicateDetection]);
+    const store = useSetlistStore.getState();
+    store.validateSetlist();
+    store.recalculateTimeEstimation();
+    store.refreshDuplicateDetection();
+  }, [setlist.songs]);
 
   // Drag handlers
   const handleDragStart = useCallback((event: DragStartEvent) => {
