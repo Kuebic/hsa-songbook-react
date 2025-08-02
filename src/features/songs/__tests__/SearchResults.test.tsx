@@ -3,7 +3,6 @@
  * @description Tests for SearchResults component
  */
 
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { SearchResults } from '../components/search/SearchResults';
@@ -16,7 +15,7 @@ vi.mock('../../../../shared/utils/cn', () => ({
 
 // Mock data
 const mockSong: Song = {
-  _id: '1',
+  id: '1',
   title: 'Amazing Grace',
   artist: 'Traditional',
   slug: 'amazing-grace',
@@ -183,7 +182,7 @@ describe('SearchResults', () => {
           mockSong,
           {
             ...mockSong,
-            _id: '2',
+            id: '2',
             title: 'How Great Thou Art',
             artist: 'Carl Boberg'
           }

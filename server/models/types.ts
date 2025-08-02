@@ -1,6 +1,7 @@
 import { Document, Types } from 'mongoose';
 
 export interface ISong {
+  id?: string; // Computed from _id for client compatibility
   title: string;
   artist?: string;
   slug: string;
@@ -28,7 +29,9 @@ export interface ISong {
   updatedAt: Date;
 }
 
-export interface ISongDocument extends ISong, Document {
+export interface ISongDocument extends Omit<ISong, 'id'>, Document {
+  // Computed id property from MongoDB _id
+  get id(): string;
   getDecompressedChordData(): Promise<string | null>;
   generateSlug(): Promise<string>;
   calculateDocumentSize(): number;

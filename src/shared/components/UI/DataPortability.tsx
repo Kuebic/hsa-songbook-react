@@ -5,9 +5,11 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import { useDataPortability } from '../../hooks/useOfflineStorage';
-import { ExportData, ImportResult } from '../../types/storage.types';
+import type { ExportData, ImportResult } from '../../types/storage.types';
+import { errorReporting } from '../../services/errorReporting';
 import { Button } from './Button';
 import { Card } from './Card';
+import { showError, showWarning } from './StatusToast';
 
 interface DataPortabilityProps {
   userId: string;
@@ -31,13 +33,6 @@ export function DataPortability({
   const [conflictResolution, setConflictResolution] = useState<'keep_existing' | 'overwrite' | 'create_new'>('keep_existing');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
 
   const handleExport = useCallback(async () => {
     try {
@@ -46,7 +41,16 @@ export function DataPortability({
         onExportComplete?.(data);
       }
     } catch (err) {
-      console.error('Export failed:', err);
+      // Use centralized error reporting instead of console.error
+      errorReporting.reportStorageError(
+        'Data export failed',
+        err instanceof Error ? err : new Error(String(err)),
+        {
+          component: 'DataPortability',
+          operation: 'export',
+          userId,
+        }
+      );
     }
   }, [exportData, onExportComplete]);
 
@@ -65,7 +69,7 @@ export function DataPortability({
     if (!file) return;
 
     if (file.type !== 'application/json') {
-      alert('Please select a valid JSON file.');
+      showError('Invalid File Type', 'Please select a valid JSON file.');
       return;
     }
 
@@ -89,13 +93,23 @@ export function DataPortability({
           onImportComplete?.(result);
         }
       } catch (err) {
-        console.error('Import failed:', err);
-        alert(`Import failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        // Use centralized error reporting instead of console.error
+        errorReporting.reportStorageError(
+          'Data import failed',
+          err instanceof Error ? err : new Error(String(err)),
+          {
+            component: 'DataPortability',
+            operation: 'import',
+            userId,
+            conflictResolution,
+          }
+        );
+        showError('Import Failed', err instanceof Error ? err.message : 'Unknown error');
       }
     };
 
     reader.onerror = () => {
-      alert('Failed to read file');
+      showError('File Read Error', 'Failed to read the selected file');
     };
 
     reader.readAsText(file);
@@ -175,7 +189,7 @@ export function DataPortability({
                     name="conflictResolution"
                     value="keep_existing"
                     checked={conflictResolution === 'keep_existing'}
-                    onChange={(e) => setConflictResolution(e.target.value as any)}
+                    onChange={(e) => setConflictResolution(e.target.value as 'keep_existing' | 'overwrite' | 'create_new')}
                     className="mr-2"
                   />
                   <span className="text-sm">Keep existing data (recommended)</span>
@@ -186,7 +200,7 @@ export function DataPortability({
                     name="conflictResolution"
                     value="overwrite"
                     checked={conflictResolution === 'overwrite'}
-                    onChange={(e) => setConflictResolution(e.target.value as any)}
+                    onChange={(e) => setConflictResolution(e.target.value as 'keep_existing' | 'overwrite' | 'create_new')}
                     className="mr-2"
                   />
                   <span className="text-sm">Overwrite with imported data</span>
@@ -197,7 +211,7 @@ export function DataPortability({
                     name="conflictResolution"
                     value="create_new"
                     checked={conflictResolution === 'create_new'}
-                    onChange={(e) => setConflictResolution(e.target.value as any)}
+                    onChange={(e) => setConflictResolution(e.target.value as 'keep_existing' | 'overwrite' | 'create_new')}
                     className="mr-2"
                   />
                   <span className="text-sm">Create new copies</span>
@@ -370,7 +384,7 @@ export function ImportButton({
         onComplete?.(result);
       }
     } catch (err) {
-      alert(`Import failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      showError('Import Failed', err instanceof Error ? err.message : 'Unknown error');
     }
   }, [importData, conflictResolution, onComplete]);
 
