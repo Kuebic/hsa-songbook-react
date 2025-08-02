@@ -11,7 +11,7 @@ import type {
   ValidationWarning, 
   UseChordValidationResult 
 } from '../types/chord.types';
-import { VALIDATION_DEBOUNCE_DELAY, CHORDPRO_DIRECTIVES } from '../types/chord.types';
+import { CHORDPRO_DIRECTIVES } from '../types/chord.types';
 import { isValidChord } from '../utils/chordHelpers';
 
 /**
@@ -63,7 +63,7 @@ export function useChordValidation(): UseChordValidationResult {
       const normalizedDirective = directive.toLowerCase().trim();
       
       // Check if directive is known
-      if (!CHORDPRO_DIRECTIVES.includes(normalizedDirective as any)) {
+      if (!(CHORDPRO_DIRECTIVES as readonly string[]).includes(normalizedDirective)) {
         errors.push({
           line: lineNumber,
           column: line.indexOf(match) + 1,

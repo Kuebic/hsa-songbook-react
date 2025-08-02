@@ -4,7 +4,7 @@
  */
 
 import ChordSheetJS from 'chordsheetjs';
-import type { ChordHelperOptions, ParsedChordProContent } from '../types/chord.types';
+import type { ChordHelperOptions, ParsedChordProContent, ChordProSection } from '../types/chord.types';
 import { TRANSPOSE_LIMITS } from '../types/chord.types';
 
 /**
@@ -139,14 +139,14 @@ export function parseChordProContent(content: string): ParsedChordProContent {
     };
 
     // Process song lines into sections
-    let currentSection: any = {
+    let currentSection: ChordProSection = {
       type: 'verse',
       lines: []
     };
 
-    song.lines.forEach((line: any) => {
+    song.lines.forEach((line: { type: string; items?: { chord?: string; lyrics?: string }[]; name?: string; value?: string }) => {
       if (line.type === 'chordLyrics') {
-        const items = line.items.map((item: any) => ({
+        const items = (line.items || []).map((item: { chord?: string; lyrics?: string }) => ({
           chord: item.chord || undefined,
           lyrics: item.lyrics || ''
         }));
