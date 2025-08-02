@@ -401,6 +401,7 @@ export function useToastHelpers() {
     showInfo: (title: string, message?: string, options?: Omit<ToastOptions, 'variant'>) =>
       addToast(title, message, { ...options, variant: 'info' }),
   };
+<<<<<<< HEAD
 }
 
 // Export aliases for backwards compatibility
@@ -408,3 +409,6 @@ export const showError = showErrorToast;
 export const showWarning = showWarningToast;
 export const showSuccess = showSuccessToast;
 export const showInfo = showInfoToast;
+=======
+}
+>>>>>>> d0b90de (fix: replace 'any' types with proper type-safe alternatives)

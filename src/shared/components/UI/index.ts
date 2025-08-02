@@ -52,6 +52,7 @@ export {
   StatusServiceWorkerActions
 } from './StatusActions'
 export {
+  StatusToast,
   ToastProvider,
   ToastContainer,
   useToast,
@@ -77,5 +78,4 @@ export { OfflineIndicator, StatusBadge } from './OfflineIndicator'
 export { SyncStatus } from './SyncStatus'
 export { UpdatePrompt } from './UpdatePrompt'
 export { StorageQuotaWarning } from './StorageQuotaWarning'
-export { DataPortability, ExportButton, ImportButton } from './DataPortability'
 export { ThemeToggle } from './ThemeToggle'
