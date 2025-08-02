@@ -175,10 +175,10 @@ export class StorageQuota {
 
       // Clean up old songs
       if (config.maxAge) {
-        const songs = await this.db.getAll(this.config.stores.songs) as CachedSong[];
+        const songs = await this.db.getAll(this.config.stores.songs);
         const oldSongs = songs.filter((song: CachedSong) => {
           const age = now - (song.lastAccessedAt || song.updatedAt);
-          return age > config.maxAge! &&
+          return age > config.maxAge &&
             !song.isFavorite && // Keep favorites
             song.syncStatus === 'synced'; // Only clean synced items
         });
@@ -191,10 +191,10 @@ export class StorageQuota {
 
       // Clean up old setlists
       if (config.maxAge) {
-        const setlists = await this.db.getAll(this.config.stores.setlists) as CachedSetlist[];
+        const setlists = await this.db.getAll(this.config.stores.setlists);
         const oldSetlists = setlists.filter((setlist: CachedSetlist) => {
           const age = now - (setlist.lastUsedAt || setlist.updatedAt);
-          return age > config.maxAge! &&
+          return age > config.maxAge &&
             !setlist.isPublic && // Keep public setlists
             setlist.syncStatus === 'synced'; // Only clean synced items
         });

@@ -164,39 +164,11 @@ export const createHookWrapper = (wrapperType: 'router' | 'memory' | 'clerk' | '
   }
 };
 
-/**
- * User event setup helper
- */
-export const setupUserEvent = () => {
-  const userEvent = require('@testing-library/user-event');
-  return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-};
-
-/**
- * Timer utilities for testing
- */
-export const createTimerUtils = () => ({
-  useFakeTimers: () => vi.useFakeTimers(),
-  useRealTimers: () => vi.useRealTimers(),
-  advanceTimers: (ms: number) => vi.advanceTimersByTime(ms),
-  runOnlyPendingTimers: () => vi.runOnlyPendingTimers(),
-  runAllTimers: () => vi.runAllTimers(),
-});
-
-/**
- * Async utilities for testing
- */
-export const createAsyncUtils = () => ({
-  waitFor: require('@testing-library/react').waitFor,
-  act: require('@testing-library/react').act,
-  flushPromises: () => new Promise(resolve => setTimeout(resolve, 0)),
-});
-
-/**
- * Mock cleanup utilities
- */
-export const createMockUtils = () => ({
-  clearAllMocks: () => vi.clearAllMocks(),
-  resetAllMocks: () => vi.resetAllMocks(),
-  restoreAllMocks: () => vi.restoreAllMocks(),
-});
+// Export utility functions from separate file to avoid React refresh warnings
+export {
+  setupUserEvent,
+  createTimerUtils,
+  createAsyncUtils,
+  createMockUtils,
+  createEnvironmentUtils
+} from './utils/testUtils';
