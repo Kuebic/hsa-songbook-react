@@ -674,12 +674,10 @@ export const useSetlistValidation = () => useSetlistStore(state => state.state.v
 export const useSetlistDragState = () => useSetlistStore(state => state.state.dragState);
 export const useSetlistTouchState = () => useSetlistStore(state => state.state.touchState);
 export const useSetlistKeyboardState = () => useSetlistStore(state => state.state.keyboardState);
-export const useSetlistUndoRedo = () => useSetlistStore(state => ({
-  canUndo: state.undoRedoState.canUndo,
-  canRedo: state.undoRedoState.canRedo,
-  undo: state.undo,
-  redo: state.redo
-}));
+export const useSetlistCanUndo = () => useSetlistStore(state => state.undoRedoState.canUndo);
+export const useSetlistCanRedo = () => useSetlistStore(state => state.undoRedoState.canRedo);
+export const useSetlistUndo = () => useSetlistStore(state => state.undo);
+export const useSetlistRedo = () => useSetlistStore(state => state.redo);
 export const useSetlistTimeEstimation = () => useSetlistStore(state => state.state.timeEstimation);
 export const useSetlistDuplicates = () => useSetlistStore(state => state.state.duplicates);
 export const useSetlistError = () => useSetlistStore(state => state.error);

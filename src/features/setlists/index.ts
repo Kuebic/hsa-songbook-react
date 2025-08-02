@@ -4,7 +4,7 @@
  *
  * Exports:
  * - Components: SetlistsPage, SetlistBuilder, DraggableSetlistItem, SetlistControls
- * - Stores: useSetlistStore, useSetlist, useSetlistDragState, useSetlistUndoRedo
+ * - Stores: useSetlistStore, useSetlist, useSetlistDragState, useSetlistCanUndo, useSetlistCanRedo, useSetlistUndo, useSetlistRedo
  * - Types: Setlist, SetlistItem, SetlistBuilderState, DragDropResult
  */
 

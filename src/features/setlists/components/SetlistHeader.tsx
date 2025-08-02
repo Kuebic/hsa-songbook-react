@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback } from 'react';
 import clsx from 'clsx';
-import { useSetlistStore, useSetlistUndoRedo } from '../stores';
+import { useSetlistStore, useSetlistCanUndo, useSetlistCanRedo, useSetlistUndo, useSetlistRedo } from '../stores';
 import type { Setlist } from '../types';
 
 interface SetlistHeaderProps {
@@ -28,7 +28,10 @@ export const SetlistHeader: React.FC<SetlistHeaderProps> = ({
   const [localDescription, setLocalDescription] = useState(setlist.description || '');
   
   const { updateSetlistInfo } = useSetlistStore();
-  const { canUndo, canRedo, undo, redo } = useSetlistUndoRedo();
+  const canUndo = useSetlistCanUndo();
+  const canRedo = useSetlistCanRedo();
+  const undo = useSetlistUndo();
+  const redo = useSetlistRedo();
 
   // Handle name save
   const handleNameSave = useCallback(() => {
