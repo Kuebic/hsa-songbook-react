@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { subscribeWithSelector, persist, createJSONStorage } from 'zustand/middleware';
+import { subscribeWithSelector } from 'zustand/middleware';
 import { openDB, type IDBPDatabase } from 'idb';
 
 export interface SyncOperation {
@@ -302,7 +302,6 @@ export const useSyncQueueStore = create<SyncQueueState>()(
 if (typeof window !== 'undefined') {
   loadPersistedOperations().then((operations) => {
     if (operations.length > 0) {
-      const state = useSyncQueueStore.getState();
       const pending = operations.filter(op => op.status === 'pending').length;
       const completed = operations.filter(op => op.status === 'completed').length;
       const failed = operations.filter(op => op.status === 'failed').length;

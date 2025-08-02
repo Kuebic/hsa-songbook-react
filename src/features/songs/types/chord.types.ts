@@ -379,3 +379,22 @@ export const COMMON_CHORDS = [
   'Csus2', 'Csus4', 'Dsus2', 'Dsus4', 'Esus2', 'Esus4', 'Fsus2', 'Fsus4',
   'Gsus2', 'Gsus4', 'Asus2', 'Asus4', 'Bsus2', 'Bsus4'
 ] as const;
+
+// Key Detection Types
+
+export interface KeyDetectionResult {
+  /** Detected key (e.g., 'C', 'Am', 'F#') */
+  key: string;
+  /** Confidence level (0-1) */
+  confidence: number;
+  /** Major or minor mode */
+  mode: 'major' | 'minor';
+  /** Alternative keys with decent scores */
+  alternativeKeys?: Array<{ key: string; confidence: number }>;
+  /** Analysis of the chord progression */
+  analysis?: {
+    diatonicChords: string[];
+    nonDiatonicChords: string[];
+    keySignature?: { sharps: string[]; flats: string[] };
+  };
+}

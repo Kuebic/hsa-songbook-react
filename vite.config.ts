@@ -3,11 +3,21 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/postcss'
 import { VitePWA } from 'vite-plugin-pwa'
+import { visualizer } from 'rollup-plugin-visualizer'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
+    // Bundle analyzer - only in analysis mode
+    ...(process.env.NODE_ENV === 'analysis' || process.argv.includes('--mode=analysis') ? [
+      visualizer({
+        filename: 'dist/bundle-analysis.html',
+        open: true,
+        gzipSize: true,
+        brotliSize: true,
+      })
+    ] : []),
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
@@ -22,9 +32,6 @@ export default defineConfig({
               expiration: {
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 5, // 5 minutes
-              },
-              cacheKeyWillBeUsed: async ({ request }) => {
-                return `${request.url}?timestamp=${Math.floor(Date.now() / (1000 * 60 * 5))}`;
               },
             },
           },
@@ -88,6 +95,39 @@ export default defineConfig({
       },
     })
   ],
+  build: {
+    // Performance budgets - warn when chunks exceed these sizes
+    chunkSizeWarningLimit: 1000, // 1MB warning limit
+    rollupOptions: {
+      output: {
+        // Manual chunk splitting for better caching
+        manualChunks: {
+          // Vendor chunks
+          'react-vendor': ['react', 'react-dom'],
+          'clerk-vendor': ['@clerk/clerk-react'],
+          'query-vendor': ['@tanstack/react-query'],
+          'router-vendor': ['react-router-dom'],
+          
+          // Feature chunks (will be enhanced with lazy loading)
+          'chord-editor': [
+            'ace-builds',
+            'chordproject-editor'
+          ],
+          'music-theory': [
+            'chordsheetjs'  
+          ],
+          
+          // UI chunks
+          'ui-components': ['clsx'],
+          'storage': ['idb', 'zustand']
+        }
+      }
+    },
+    // Enable source maps for debugging
+    sourcemap: true,
+    // Optimize for modern browsers
+    target: 'es2020',
+  },
   css: {
     postcss: {
       plugins: [tailwindcss],

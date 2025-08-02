@@ -4,12 +4,14 @@ import { useMemo } from 'react';
 /**
  * User roles enumeration matching server-side definitions
  */
-export enum Role {
-  USER = 'user',
-  MODERATOR = 'moderator', 
-  LEADER = 'leader',
-  ADMIN = 'admin'
-}
+export const Role = {
+  USER: 'user',
+  MODERATOR: 'moderator', 
+  LEADER: 'leader',
+  ADMIN: 'admin'
+} as const;
+
+export type Role = typeof Role[keyof typeof Role];
 
 /**
  * Role hierarchy for permission checking
@@ -51,7 +53,7 @@ export function useUser() {
       role,
       avatar: user.imageUrl,
       createdAt: user.createdAt,
-      lastActiveAt: user.lastActiveAt,
+      lastActiveAt: (user as any).lastActiveAt ?? user.createdAt,
       
       // Permission helpers
       hasRole: (requiredRole: Role) => hasRolePermission(role, requiredRole),

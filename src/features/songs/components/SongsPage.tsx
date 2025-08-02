@@ -1,9 +1,13 @@
 import { SignedIn, SignedOut } from '@clerk/clerk-react'
 import { Card } from '../../../shared/components'
 import { ChordDisplay } from './ChordDisplay'
-import { ChordEditor } from './ChordEditor'
 import { useChordTransposition } from '../hooks/useChordTransposition'
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
+
+// Lazy load the ChordEditor component for better performance
+const ChordEditor = lazy(() => import('./ChordEditor').then(module => ({ 
+  default: module.ChordEditor 
+})))
 
 const sampleSong = `{title: Amazing Grace}
 {subtitle: Traditional}
@@ -70,15 +74,27 @@ export function SongsPage() {
             </p>
           </div>
 
-          <ChordEditor
-            content={editorContent}
-            onChange={setEditorContent}
-            showPreview={showPreview}
-            theme="light"
-            height={600}
-            autoComplete={true}
-            showToolbar={true}
-          />
+          <Suspense 
+            fallback={
+              <div className="flex items-center justify-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600 text-sm">Loading ChordEditor...</p>
+                  <p className="text-gray-500 text-xs mt-1">This may take a moment on first load</p>
+                </div>
+              </div>
+            }
+          >
+            <ChordEditor
+              content={editorContent}
+              onChange={setEditorContent}
+              showPreview={showPreview}
+              theme="light"
+              height={600}
+              autoComplete={true}
+              showToolbar={true}
+            />
+          </Suspense>
         </Card>
         
         <Card>

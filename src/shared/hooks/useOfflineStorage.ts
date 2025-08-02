@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
+import type { 
   CachedSong, 
   CachedSetlist, 
   UserPreferences, 
@@ -77,7 +77,7 @@ export function useOfflineStorage() {
       if (result.success) {
         // Update offline store counts
         const stats = await storage.getStorageStats();
-        if (stats.success) {
+        if (stats.success && stats.data) {
           offlineStore.setCachedCounts(stats.data.totalSongs, stats.data.totalSetlists);
         }
       }
@@ -105,7 +105,7 @@ export function useOfflineStorage() {
       if (result.success) {
         // Update offline store counts
         const stats = await storage.getStorageStats();
-        if (stats.success) {
+        if (stats.success && stats.data) {
           offlineStore.setCachedCounts(stats.data.totalSongs, stats.data.totalSetlists);
         }
       }
@@ -119,7 +119,7 @@ export function useOfflineStorage() {
       if (result.success) {
         // Update offline store counts
         const stats = await storage.getStorageStats();
-        if (stats.success) {
+        if (stats.success && stats.data) {
           offlineStore.setCachedCounts(stats.data.totalSongs, stats.data.totalSetlists);
         }
       }
@@ -174,7 +174,7 @@ export function useOfflineStorage() {
       if (result.success) {
         // Update offline store counts
         const stats = await storage.getStorageStats();
-        if (stats.success) {
+        if (stats.success && stats.data) {
           offlineStore.setCachedCounts(stats.data.totalSongs, stats.data.totalSetlists);
         }
       }
@@ -193,7 +193,7 @@ export function useOfflineStorage() {
       if (result.success) {
         // Update offline store counts
         const stats = await storage.getStorageStats();
-        if (stats.success) {
+        if (stats.success && stats.data) {
           offlineStore.setCachedCounts(stats.data.totalSongs, stats.data.totalSetlists);
         }
       }
@@ -534,7 +534,7 @@ export function useStorageStats() {
     refresh: loadStats,
     performCleanup,
     isQuotaWarning: quota?.warning || false,
-    isQuotaCritical: quota?.percentage >= 95,
+    isQuotaCritical: (quota?.percentage ?? 0) >= 95,
   };
 }
 

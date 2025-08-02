@@ -3,7 +3,7 @@
  * @description Tests for offline functionality and service worker integration
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
 // Mock IndexedDB first
@@ -36,6 +36,7 @@ const mockNavigator = {
     register: vi.fn(),
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
+    ready: Promise.resolve({}),
   },
 };
 
@@ -338,7 +339,7 @@ describe('Service Worker Integration', () => {
     });
     
     // Mock window.addEventListener
-    const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
+    vi.spyOn(window, 'addEventListener');
     
     // This would normally be handled by the main.tsx file
     // Just verify that the registration logic would work

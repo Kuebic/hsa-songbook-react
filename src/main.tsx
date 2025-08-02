@@ -29,10 +29,6 @@ createRoot(document.getElementById('root')!).render(
       afterSignOutUrl="/"
       signInFallbackRedirectUrl="/songs"
       signUpFallbackRedirectUrl="/songs"
-      options={{
-        synchronize: true, // Enable cross-tab session sync
-        isSatellite: false
-      }}
     >
       <App />
     </ClerkProvider>

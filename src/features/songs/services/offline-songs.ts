@@ -153,7 +153,7 @@ export class OfflineSongsService {
       song.title.toLowerCase().includes(searchTerm) ||
       song.artist?.toLowerCase().includes(searchTerm) ||
       song.lyrics?.toLowerCase().includes(searchTerm) ||
-      song.themes?.some(theme => theme.toLowerCase().includes(searchTerm))
+      song.themes?.some((theme: string) => theme.toLowerCase().includes(searchTerm))
     );
   }
 

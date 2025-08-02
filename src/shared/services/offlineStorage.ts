@@ -3,8 +3,9 @@
  * @description Core IndexedDB storage service for offline data management
  */
 
-import { openDB, type IDBPDatabase } from 'idb';
-import { 
+import { openDB } from 'idb';
+import type { IDBPDatabase } from 'idb';
+import type { 
   CachedSong, 
   CachedSetlist, 
   UserPreferences, 
@@ -25,7 +26,7 @@ import {
 export class OfflineStorage {
   private db: IDBPDatabase | null = null;
   private isInit = false;
-  private eventListeners = new Map<StorageEventType, StorageEventCallback[]>();
+  private eventListeners = new Map<StorageEventType, StorageEventCallback<any>[]>();
   
   private readonly config: StorageConfig = {
     dbName: 'hsa-songbook-offline',
@@ -798,7 +799,7 @@ export class OfflineStorage {
     if (!this.eventListeners.has(eventType)) {
       this.eventListeners.set(eventType, []);
     }
-    this.eventListeners.get(eventType)!.push(callback);
+    this.eventListeners.get(eventType)!.push(callback as StorageEventCallback<any>);
   }
 
   /**
@@ -807,7 +808,7 @@ export class OfflineStorage {
   off<T = unknown>(eventType: StorageEventType, callback: StorageEventCallback<T>): void {
     const callbacks = this.eventListeners.get(eventType);
     if (callbacks) {
-      const index = callbacks.indexOf(callback);
+      const index = callbacks.indexOf(callback as StorageEventCallback<any>);
       if (index > -1) {
         callbacks.splice(index, 1);
       }

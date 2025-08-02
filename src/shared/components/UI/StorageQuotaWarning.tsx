@@ -3,9 +3,9 @@
  * @description Component for displaying storage quota warnings and management options
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useStorageStats, useDataPortability } from '../../hooks/useOfflineStorage';
-import { CleanupConfig } from '../../types/storage.types';
+import { type CleanupConfig } from '../../types/storage.types';
 import { Button } from './Button';
 import { Card } from './Card';
 
