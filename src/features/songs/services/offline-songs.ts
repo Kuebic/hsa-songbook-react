@@ -51,7 +51,7 @@ const initDB = async (): Promise<IDBPDatabase> => {
 };
 
 // Calculate approximate size of an object in bytes
-const calculateSize = (obj: any): number => {
+const calculateSize = (obj: unknown): number => {
   return new Blob([JSON.stringify(obj)]).size;
 };
 
@@ -153,7 +153,7 @@ export class OfflineSongsService {
       song.title.toLowerCase().includes(searchTerm) ||
       song.artist?.toLowerCase().includes(searchTerm) ||
       song.lyrics?.toLowerCase().includes(searchTerm) ||
-      song.themes?.some(theme => theme.toLowerCase().includes(searchTerm))
+      song.themes?.some((theme: string) => theme.toLowerCase().includes(searchTerm))
     );
   }
 
@@ -248,7 +248,7 @@ export class OfflineSongsService {
         break;
       }
       
-      await database.delete(SONGS_STORE, song._id);
+      await database.delete(SONGS_STORE, song.id || song._id);
       currentSize -= song.size || 0;
       currentCount--;
     }

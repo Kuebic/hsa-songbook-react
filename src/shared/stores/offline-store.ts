@@ -166,9 +166,16 @@ if (typeof window !== 'undefined') {
   
   // Listen for connection type changes (if supported)
   if ('connection' in navigator) {
-    const connection = (navigator as any).connection;
+    type NavigatorWithConnection = { 
+      connection?: { 
+        effectiveType?: string; 
+        type?: string; 
+        addEventListener: (event: string, handler: () => void) => void;
+      };
+    };
+    const connection = (navigator as unknown as NavigatorWithConnection).connection;
     const updateConnectionInfo = () => {
-      store.setConnectionType(connection.effectiveType || connection.type || null);
+      store.setConnectionType(connection?.effectiveType || connection?.type || null);
     };
     
     connection.addEventListener('change', updateConnectionInfo);
@@ -182,5 +189,5 @@ if (typeof window !== 'undefined') {
   };
   
   // Store cleanup function for potential future use
-  (window as any).__offlineStoreCleanup = cleanup;
+  (window as unknown as { __offlineStoreCleanup?: () => void }).__offlineStoreCleanup = cleanup;
 }
