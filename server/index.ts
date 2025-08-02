@@ -7,6 +7,14 @@ import rateLimit from 'express-rate-limit';
 import { clerkMiddleware } from '@clerk/express';
 import { DatabaseConnection } from './config/database';
 
+/**
+ * Custom error interface for application errors
+ */
+interface AppError extends Error {
+  status?: number;
+  code?: string;
+}
+
 // Import routes
 import songsRouter from './routes/songs';
 import arrangementsRouter from './routes/arrangements';
@@ -78,11 +86,12 @@ app.use('*', (req, res) => {
 
 // Global error handler  
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-app.use((err: Error & { status?: number; code?: string }, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Unhandled error:', err);
+app.use((err: AppError, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const errorMessage = err instanceof Error ? err.message : 'Internal server error';
+  console.error('Unhandled error:', errorMessage);
   
   res.status(err.status || 500).json({
-    error: err.message || 'Internal server error',
+    error: errorMessage,
     code: err.code || 'INTERNAL_ERROR',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
@@ -104,7 +113,8 @@ async function startServer() {
         console.warn('⚠️  WARNING: Approaching 512MB storage limit!');
       }
     } catch (error) {
-      console.log('📊 Could not fetch storage stats (database may be empty)', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.log('📊 Could not fetch storage stats (database may be empty):', errorMessage);
     }
     
     // Start server
@@ -120,20 +130,24 @@ async function startServer() {
 }
 
 // Graceful shutdown
-process.on('SIGTERM', async () => {
+process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully');
-  await db.disconnect();
-  process.exit(0);
+  void (async () => {
+    await db.disconnect();
+    process.exit(0);
+  })();
 });
 
-process.on('SIGINT', async () => {
+process.on('SIGINT', () => {
   console.log('SIGINT received, shutting down gracefully');
-  await db.disconnect();
-  process.exit(0);
+  void (async () => {
+    await db.disconnect();
+    process.exit(0);
+  })();
 });
 
 if (require.main === module) {
-  startServer();
+  void startServer();
 }
 
 export { app };
