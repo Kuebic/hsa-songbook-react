@@ -23,11 +23,39 @@ export function isValidChordProContent(content: string): boolean {
     return false;
   }
 
-  // Check for basic ChordPro patterns
+  // Check for seriously malformed directives that would cause parser errors
+  const malformedDirectives = [
+    /\{\s*\{/,           // Double opening braces
+    /\}\s*\}/,           // Double closing braces  
+    /\{[^}]*\{/,         // Nested opening braces
+  ];
+
+  // Check for malformed patterns
+  for (const pattern of malformedDirectives) {
+    if (pattern.test(trimmed)) {
+      return false;
+    }
+  }
+
+  // Early check for basic ChordPro patterns before expensive brace counting
   const hasDirectives = /\{[^}]+\}/.test(trimmed);
   const hasChords = /\[[^\]]+\]/.test(trimmed);
+  
+  // If no patterns found, it's not valid ChordPro content
+  if (!hasDirectives && !hasChords) {
+    return false;
+  }
 
-  return hasDirectives || hasChords;
+  // Only check for unbalanced braces if we have directive patterns
+  if (hasDirectives) {
+    const openBraces = (trimmed.match(/\{/g) || []).length;
+    const closeBraces = (trimmed.match(/\}/g) || []).length;
+    if (openBraces !== closeBraces) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -249,7 +277,7 @@ export function isValidChord(chordString: string): boolean {
 
     const chord = ChordSheetJS.Chord.parse(chordString.trim());
     return chord !== null;
-  } catch (error) {
+  } catch {
     return false;
   }
 }

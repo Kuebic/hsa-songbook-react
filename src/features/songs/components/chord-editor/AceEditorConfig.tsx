@@ -75,6 +75,7 @@ export const AceEditorConfig = React.memo<AceEditorConfigProps>(({
 }) => {
   const editorRef = useRef<Ace.Editor | null>(null);
   const isInitializedRef = useRef(false);
+  const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   /**
    * Get Ace editor theme based on component theme
@@ -88,6 +89,39 @@ export const AceEditorConfig = React.memo<AceEditorConfigProps>(({
       default:
         return 'ace/theme/github';
     }
+  }, []);
+
+  /**
+   * Debounced resize utility for Ace editor
+   */
+  const debouncedEditorResize = useCallback((editor: Ace.Editor) => {
+    // Clear any pending resize operations
+    if (resizeTimeoutRef.current) {
+      clearTimeout(resizeTimeoutRef.current);
+    }
+
+    // Set up the resize operation with proper timing
+    resizeTimeoutRef.current = setTimeout(() => {
+      if (editor && !editor.renderer.$frozen) {
+        // Ensure editor is visible
+        editor.renderer.$cursorLayer.element.style.display = 'block';
+        editor.renderer.updateText();
+        
+        // Perform resize operations
+        editor.resize(true);
+        editor.renderer.updateFull(true);
+        
+        // Additional resize after a brief delay for layout stabilization
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            if (editor && !editor.renderer.$frozen) {
+              editor.resize();
+              editor.renderer.updateFull();
+            }
+          }, 50);
+        });
+      }
+    }, 100);
   }, []);
 
   /**
@@ -221,6 +255,9 @@ export const AceEditorConfig = React.memo<AceEditorConfigProps>(({
       isInitializedRef.current = true;
       onEditorReady(editor as Ace.Editor);
 
+      // Use the debounced resize utility for proper initialization
+      debouncedEditorResize(editor as Ace.Editor);
+
     } catch (error) {
       // Use centralized error reporting instead of console.error
       errorReporting.reportComponentError(
@@ -250,7 +287,8 @@ export const AceEditorConfig = React.memo<AceEditorConfigProps>(({
     onCursorChange,
     keyboardShortcuts,
     createDirectiveCompleter,
-    createChordCompleter
+    createChordCompleter,
+    debouncedEditorResize
   ]);
 
   /**
@@ -297,6 +335,17 @@ export const AceEditorConfig = React.memo<AceEditorConfigProps>(({
         editorRef.current = null;
       }
       isInitializedRef.current = false;
+    };
+  }, []);
+
+  /**
+   * Cleanup timeout on unmount
+   */
+  useEffect(() => {
+    return () => {
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
     };
   }, []);
 

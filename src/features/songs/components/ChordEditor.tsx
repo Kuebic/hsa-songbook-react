@@ -79,7 +79,6 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
     state,
     setContent,
     setCursor,
-    insertText,
     undo,
     redo,
     canUndo,
@@ -100,11 +99,14 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
   // Initialize keyboard shortcuts
   const { shortcuts } = useKeyboardShortcuts({
     onInsertTextWithCursor: (text: string, offset: number) => {
-      if (aceEditorRef.current) {
-        aceEditorRef.current.insert(text);
+      const editor = aceEditorRef.current;
+      if (editor?.insert && editor?.getCursorPosition && editor?.moveCursorTo) {
+        editor.insert(text);
         if (offset !== 0) {
-          const pos = aceEditorRef.current.getCursorPosition();
-          aceEditorRef.current.moveCursorTo(pos.row, pos.column + offset);
+          const pos = editor.getCursorPosition();
+          if (pos && typeof pos.row === 'number' && typeof pos.column === 'number') {
+            editor.moveCursorTo(pos.row, pos.column + offset);
+          }
         }
       }
     }
@@ -138,10 +140,15 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
    * Update editor content when prop changes
    */
   useEffect(() => {
-    if (aceEditorRef.current && content !== aceEditorRef.current.getValue()) {
-      const cursorPos = aceEditorRef.current.getCursorPosition();
-      aceEditorRef.current.setValue(content, -1);
-      aceEditorRef.current.moveCursorToPosition(cursorPos);
+    const editor = aceEditorRef.current;
+    if (editor?.getValue && editor?.getCursorPosition && editor?.setValue && editor?.moveCursorToPosition) {
+      if (content !== editor.getValue()) {
+        const cursorPos = editor.getCursorPosition();
+        editor.setValue(content, -1);
+        if (cursorPos && typeof cursorPos.row === 'number' && typeof cursorPos.column === 'number') {
+          editor.moveCursorToPosition(cursorPos);
+        }
+      }
     }
   }, [content]);
 
@@ -156,12 +163,28 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
       case 'redo':
         redo();
         break;
-      case 'insert-chord':
-        insertText('[C]');
+      case 'insert-chord': {
+        const editor = aceEditorRef.current;
+        if (editor?.insert && editor?.getCursorPosition && editor?.moveCursorTo) {
+          editor.insert('[C]');
+          const pos = editor.getCursorPosition();
+          if (pos && typeof pos.row === 'number' && typeof pos.column === 'number') {
+            editor.moveCursorTo(pos.row, pos.column - 1);
+          }
+        }
         break;
-      case 'insert-directive':
-        insertText('{title: }');
+      }
+      case 'insert-directive': {
+        const editor = aceEditorRef.current;
+        if (editor?.insert && editor?.getCursorPosition && editor?.moveCursorTo) {
+          editor.insert('{title: }');
+          const pos = editor.getCursorPosition();
+          if (pos && typeof pos.row === 'number' && typeof pos.column === 'number') {
+            editor.moveCursorTo(pos.row, pos.column - 1);
+          }
+        }
         break;
+      }
       case 'format':
         format();
         break;
@@ -171,7 +194,7 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
       default:
         console.warn(`Unknown toolbar action: ${action}`);
     }
-  }, [undo, redo, insertText, format, save]);
+  }, [undo, redo, format, save]);
 
   /**
    * Handle validation results
@@ -222,7 +245,9 @@ export const ChordEditor = React.memo<ChordEditorProps>(({
             ref={editorRef}
             className="chord-editor-ace flex-1"
             style={{ 
-              width: '100%'
+              width: '100%',
+              minHeight: showPreview ? '400px' : '300px',
+              height: '100%'
             }}
             role="textbox"
             aria-label="ChordPro Editor"
