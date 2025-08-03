@@ -96,30 +96,60 @@ export default defineConfig({
     })
   ],
   build: {
-    // Performance budgets - warn when chunks exceed these sizes
-    chunkSizeWarningLimit: 1000, // 1MB warning limit
+    // Stricter performance budgets for better optimization
+    chunkSizeWarningLimit: 600, // 600KB warning limit (reduced from 1MB)
     rollupOptions: {
       output: {
         // Manual chunk splitting for better caching
         manualChunks: {
-          // Vendor chunks
+          // Core vendor chunks
           'react-vendor': ['react', 'react-dom'],
-          'clerk-vendor': ['@clerk/clerk-react'],
-          'query-vendor': ['@tanstack/react-query'],
           'router-vendor': ['react-router-dom'],
           
-          // Feature chunks (will be enhanced with lazy loading)
-          'chord-editor': [
+          // Auth vendor (heavy - only load when needed)
+          'auth-vendor': ['@clerk/clerk-react', '@clerk/express'],
+          
+          // Data fetching vendor
+          'query-vendor': ['@tanstack/react-query'],
+          
+          // Drag and drop vendor (for setlist builder)
+          'dnd-vendor': [
+            '@dnd-kit/core',
+            '@dnd-kit/modifiers', 
+            '@dnd-kit/sortable',
+            '@dnd-kit/utilities'
+          ],
+          
+          // Music/chord editor vendor chunks (heaviest dependencies)
+          'chord-editor-vendor': [
             'ace-builds',
             'chordproject-editor'
           ],
-          'music-theory': [
+          'music-theory-vendor': [
             'chordsheetjs'  
           ],
           
-          // UI chunks
-          'ui-components': ['clsx'],
-          'storage': ['idb', 'zustand']
+          // Storage and state management
+          'storage-vendor': ['idb', 'zustand'],
+          
+          // Server utilities (when used)
+          'server-vendor': [
+            'compression',
+            'cors', 
+            'express',
+            'helmet',
+            'mongoose',
+            'express-rate-limit',
+            'express-validator'
+          ],
+          
+          // Utilities
+          'utils-vendor': ['clsx', 'zod'],
+          
+          // Development only
+          ...(process.env.NODE_ENV === 'development' && {
+            'dev-vendor': ['mongodb-memory-server']
+          })
         }
       }
     },

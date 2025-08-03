@@ -5,7 +5,7 @@
 
 import type { ISong } from '../../../server/models/types';
 import type { SearchFilters, SearchResult, AvailableFilters } from '../../features/songs/types/search.types';
-import type { CachedSong, CachedSetlist, UserPreferences, StorageMetadata } from '../../shared/types/storage.types';
+import type { CachedSong, CachedSetlist, UserPreferences } from '../../shared/types/storage.types';
 import type { SyncOperation } from '../../shared/stores/sync-queue-store';
 
 /**

@@ -10,8 +10,7 @@ import type {
   MockSearchFilters,
   MockSong,
   MockSearchResult,
-  MockIndexedDBStore,
-  TestStorageOperation
+  MockIndexedDBStore
 } from '../types/test-fixtures.types';
 
 /**
@@ -54,7 +53,7 @@ export const expectMockFunction = <TArgs extends unknown[] = unknown[], TReturn 
  */
 export const expectAsync = {
   toResolve: async <T>(promise: Promise<T>): Promise<T> => {
-    const result = await expect(promise).resolves;
+    const result = expect(promise).resolves;
     return result as T;
   },
   
@@ -289,7 +288,7 @@ export const expectArray = <T>(array: T[]) => ({
   },
   
   toAllMatch: (predicate: (item: T) => boolean) => {
-    array.forEach((item, index) => {
+    array.forEach((item) => {
       expect(predicate(item)).toBe(true);
     });
   }
@@ -309,7 +308,7 @@ export const waitFor = async <T>(
     try {
       const result = await operation();
       return result;
-    } catch (error) {
+    } catch {
       await new Promise(resolve => setTimeout(resolve, interval));
     }
   }

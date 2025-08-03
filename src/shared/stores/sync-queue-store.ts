@@ -206,7 +206,7 @@ export const useSyncQueueStore = create<SyncQueueState>()(
         newOperations[operationIndex] = updatedOperation;
         
         // Update counters
-        let updates: Partial<SyncQueueState> = { operations: newOperations };
+        const updates: Partial<SyncQueueState> = { operations: newOperations };
         
         if (oldStatus === 'pending' && status !== 'pending') {
           updates.totalPending = state.totalPending - 1;

@@ -1,10 +1,14 @@
+import React, { Suspense, useState } from 'react'
 import { SignedIn, SignedOut } from '@clerk/clerk-react'
 import { Card } from '../../../shared/components'
 import { ChordDisplay } from './ChordDisplay'
 import { ChordProEditor } from './ChordProEditor'
 import { useChordTransposition } from '../hooks/useChordTransposition'
 import { useTheme } from '../../../shared/contexts/ThemeContext'
-import { useState } from 'react'
+import { LoadingSpinner, LazyLoadErrorBoundary } from '../../../shared/components/UI'
+
+// Lazy load ChordEditor (heaviest component with ace-builds dependency)
+const ChordEditor = React.lazy(() => import('./ChordEditor'))
 
 const sampleSong = `{title: Amazing Grace}
 {subtitle: Traditional}
@@ -121,7 +125,56 @@ export function SongsPage() {
             showChords={true}
           />
         </Card>
+
+        <Card>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Legacy ChordEditor (Ace-based)</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowPreview(!showPreview)}
+                className={`px-3 py-1 rounded text-sm ${
+                  showPreview 
+                    ? 'bg-blue-500 hover:bg-blue-600 text-white' 
+                    : 'bg-gray-200 hover:bg-gray-300'
+                }`}
+              >
+                {showPreview ? 'Hide Preview' : 'Show Preview'}
+              </button>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800 mb-4">
+            <p className="text-orange-800 dark:text-orange-300 font-medium">⚠️ Legacy Ace Editor</p>
+            <p className="text-orange-600 dark:text-orange-400 text-sm mt-2">
+              This is the original Ace-based editor with enhanced reliability improvements.
+            </p>
+          </div>
+
+          <LazyLoadErrorBoundary componentName="Chord Editor">
+            <Suspense 
+              fallback={
+                <div className="flex flex-col items-center justify-center h-96 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+                  <LoadingSpinner size="lg" />
+                  <p className="mt-4 text-gray-600 dark:text-gray-400">Loading Chord Editor...</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-500">This may take a moment on first load</p>
+                </div>
+              }
+            >
+              <ChordEditor
+                content={editorContent}
+                onChange={setEditorContent}
+                showPreview={showPreview}
+                theme={resolvedTheme}
+                height={600}
+                autoComplete={true}
+                showToolbar={true}
+              />
+            </Suspense>
+          </LazyLoadErrorBoundary>
+        </Card>
       </SignedIn>
     </div>
   )
 }
+
+export default SongsPage

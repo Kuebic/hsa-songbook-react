@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import sharp from 'sharp';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,8 +43,57 @@ const createBase64Icon = (size) => {
 // Create icon files with proper content
 const publicDir = path.join(__dirname, '..', 'public');
 
-// For development, create simple SVG files that browsers can use
-fs.writeFileSync(path.join(publicDir, 'pwa-192x192.svg'), svgContent.replace('192', '192'));
-fs.writeFileSync(path.join(publicDir, 'pwa-512x512.svg'), svgContent.replace('192', '512'));
+// Create SVG files
+const svg192 = svgContent.replace(/192/g, '192');
+const svg512 = svgContent.replace(/192/g, '512');
 
-console.log('Icon placeholders created. In production, generate proper PNG files from these SVGs.');
+fs.writeFileSync(path.join(publicDir, 'pwa-192x192.svg'), svg192);
+fs.writeFileSync(path.join(publicDir, 'pwa-512x512.svg'), svg512);
+
+// Convert SVGs to PNGs
+async function createPngIcons() {
+  try {
+    // Create 192x192 PNG
+    await sharp(Buffer.from(svg192))
+      .png({ quality: 100 })
+      .toFile(path.join(publicDir, 'pwa-192x192.png'));
+
+    // Create 512x512 PNG  
+    await sharp(Buffer.from(svg512))
+      .png({ quality: 100 })
+      .toFile(path.join(publicDir, 'pwa-512x512.png'));
+
+    console.log('PWA icons created successfully: pwa-192x192.png and pwa-512x512.png');
+  } catch (error) {
+    console.error('Error creating PNG icons:', error);
+    
+    // Fallback: create simple colored rectangles as PNGs if SVG processing fails
+    console.log('Attempting fallback PNG creation...');
+    
+    await sharp({
+      create: {
+        width: 192,
+        height: 192,
+        channels: 4,
+        background: { r: 29, g: 78, b: 216, alpha: 1 }
+      }
+    })
+    .png()
+    .toFile(path.join(publicDir, 'pwa-192x192.png'));
+    
+    await sharp({
+      create: {
+        width: 512,
+        height: 512,
+        channels: 4,
+        background: { r: 29, g: 78, b: 216, alpha: 1 }
+      }
+    })
+    .png()
+    .toFile(path.join(publicDir, 'pwa-512x512.png'));
+    
+    console.log('Fallback PNG icons created');
+  }
+}
+
+createPngIcons();
