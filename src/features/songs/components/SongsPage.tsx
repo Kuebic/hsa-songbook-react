@@ -1,7 +1,7 @@
 import { SignedIn, SignedOut } from '@clerk/clerk-react'
 import { Card } from '../../../shared/components'
 import { ChordDisplay } from './ChordDisplay'
-import { ChordEditor } from './ChordEditor'
+import { ChordProEditor } from './ChordProEditor'
 import { useChordTransposition } from '../hooks/useChordTransposition'
 import { useTheme } from '../../../shared/contexts/ThemeContext'
 import { useState } from 'react'
@@ -50,7 +50,7 @@ export function SongsPage() {
       <SignedIn>
         <Card>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">ChordEditor Demo</h2>
+            <h2 className="text-xl font-semibold">New ChordPro Editor Demo</h2>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowPreview(!showPreview)}
@@ -66,20 +66,20 @@ export function SongsPage() {
           </div>
           
           <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 mb-4">
-            <p className="text-green-800 dark:text-green-300 font-medium">✨ ChordEditor Component Demo</p>
+            <p className="text-green-800 dark:text-green-300 font-medium">✨ New ChordPro Editor (No Ace!)</p>
             <p className="text-green-600 dark:text-green-400 text-sm mt-2">
-              Edit ChordPro content below with syntax highlighting, validation, and live preview.
+              This is our new custom ChordPro editor using native textarea - no more rendering issues!
             </p>
           </div>
 
-          <ChordEditor
-            content={editorContent}
+          <ChordProEditor
+            initialContent={editorContent}
             onChange={setEditorContent}
             showPreview={showPreview}
             theme={resolvedTheme}
             height={600}
-            autoComplete={true}
-            showToolbar={true}
+            transpose={transposeLevel}
+            fontSize={16}
           />
         </Card>
         
